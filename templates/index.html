@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SENTINEL | CCTV AI Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="sidebar">
+        <div class="logo">SENTINEL AI</div>
+        <ul class="nav-links">
+            <li class="active"><i class="fas fa-desktop"></i> &nbsp; Live Dashboard</li>
+            <li><i class="fas fa-history"></i> &nbsp; History</li>
+            <li><i class="fas fa-shield-halved"></i> &nbsp; Security Zones</li>
+            <li><i class="fas fa-cog"></i> &nbsp; Settings</li>
+        </ul>
+        
+        <div class="search-container">
+            <h3>Object Query</h3>
+            <div class="search-input-wrapper">
+                <input type="text" class="search-input" id="objectSearch" placeholder="Type object name...">
+                <button class="mic-btn" id="startVoice"><i class="fas fa-microphone"></i></button>
+            </div>
+            <div id="searchResults" style="font-size: 0.9rem; color: #b0b0cc;"></div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="header">
+            <h1>Activity Dashboard</h1>
+            <div class="status-badge">
+                <div class="status-dot"></div>
+                AI TRACKING ACTIVE
+            </div>
+        </div>
+
+        <div class="feed-container">
+            <div class="feed-overlay">LIVE | CAM-01 | INTERNAL</div>
+            <img id="videoFeed" src="{{ url_for('video_feed') }}" alt="Live Feed">
+        </div>
+
+        <div class="info-sidebar">
+            <div class="card">
+                <h3>System Health</h3>
+                <div style="display: flex; gap: 1rem; margin-top: 10px;">
+                    <div style="flex: 1; text-align: center;">
+                        <div style="font-size: 1.5rem; font-weight: 700;">60</div>
+                        <div style="font-size: 0.7rem; color: #b0b0cc;">FPS</div>
+                    </div>
+                    <div style="flex: 1; text-align: center;">
+                        <div style="font-size: 1.5rem; font-weight: 700; color: #7c4dff;">YOLO8</div>
+                        <div style="font-size: 0.7rem; color: #b0b0cc;">ENGINE</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" style="flex: 1; overflow-y: auto;">
+                <h3>Detection Log</h3>
+                <div class="log-list" id="activityLog">
+                    <!-- Logs will be injected here -->
+                    <div class="log-item">
+                        <div class="info">
+                            <div class="name">Initializing...</div>
+                            <div class="zone">Ready to track</div>
+                        </div>
+                        <div class="time">Now</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

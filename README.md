@@ -60,5 +60,12 @@ To find the last seen location of an object:
 python scripts/voice_search.py
 ```
 
+### 3. Web Dashboard (New!)
+Experience the stunning real-time prototype:
+```bash
+python app.py
+```
+Then open `http://localhost:5000` in your browser.
+
 ## 📝 License
 This project is licensed under the MIT License.
