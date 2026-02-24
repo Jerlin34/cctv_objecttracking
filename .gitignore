@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+.venv
+env/
+venv/
+ENV/
+*.db
+!database/object_history.db
+*.pt
+!scripts/yolov8n.pt
+*.mp4
+!videos/test_video.mp4
