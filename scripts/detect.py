@@ -4,6 +4,7 @@ from ultralytics import YOLO
 import cv2
 from deep_sort_realtime.deepsort_tracker import DeepSort
 import sqlite3
+import os
 from datetime import datetime
 
 # ------------------------
@@ -29,7 +30,9 @@ print("Camera running...")
 # ------------------------
 # DATABASE
 # ------------------------
-conn = sqlite3.connect("../database/object_history.db")
+# Build absolute path to the database file relative to this script's location
+db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'database', 'object_history.db'))
+conn = sqlite3.connect(db_path)
 cursor = conn.cursor()
 
 cursor.execute("""
