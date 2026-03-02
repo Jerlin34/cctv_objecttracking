@@ -12,7 +12,15 @@ app = Flask(__name__)
 # Load model and tracker
 model = YOLO("scripts/yolov8n.pt")
 tracker = DeepSort(max_age=30)
-cap = cv2.VideoCapture(0)
+
+def get_camera():
+    cap = cv2.VideoCapture(0)
+    if not cap.isOpened():
+        print("Error: Could not open camera.")
+        return None
+    return cap
+
+cap = get_camera()
 
 # Database path
 DB_PATH = "database/object_history.db"
@@ -25,11 +33,23 @@ def get_zone(x):
 last_zone = {}
 
 def gen_frames():
-    global last_zone
+    global last_zone, cap
     while True:
+        if cap is None or not cap.isOpened():
+            cap = get_camera()
+            if cap is None:
+                # Still failing, wait a bit or yield a placeholder?
+                # For now, let's just break or sleep
+                import time
+                time.sleep(1)
+                continue
+
         success, frame = cap.read()
         if not success:
-            break
+            print("Failed to read frame, retrying camera...")
+            cap.release()
+            cap = None
+            continue
         else:
             # YOLO detection
             results = model(frame, verbose=False)
@@ -97,13 +117,14 @@ def search():
         cursor.execute("SELECT zone, timestamp FROM object_history WHERE object_name LIKE ? ORDER BY id DESC LIMIT 1", (f"%{name}%",))
         result = cursor.fetchone()
         if result:
+            zone = result[0].lower().replace(" area", "")
             return jsonify({
                 "found": True,
-                "message": f"Last seen in {result[0]} at {result[1]}"
+                "message": f"on {zone} at {result[1]}"
             })
         return jsonify({
             "found": False,
-            "message": "Object not found in recent history"
+            "message": "not found in recent history"
         })
 
 if __name__ == '__main__':

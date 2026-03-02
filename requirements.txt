@@ -2,3 +2,5 @@ ultralytics
 opencv-python
 deep-sort-realtime
 pyttsx3
+flask
+flask-cors

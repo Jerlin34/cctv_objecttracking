@@ -6,10 +6,19 @@ from deep_sort_realtime.deepsort_tracker import DeepSort
 import sqlite3
 from datetime import datetime
 
+import os
+
+# ------------------------
+# FOLDERS
+# ------------------------
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DB_PATH = os.path.join(BASE_DIR, "database", "object_history.db")
+MODEL_PATH = os.path.join(BASE_DIR, "scripts", "yolov8n.pt")
+
 # ------------------------
 # LOAD YOLO
 # ------------------------
-model = YOLO("yolov8n.pt")
+model = YOLO(MODEL_PATH)
 tracker = DeepSort(max_age=30)
 
 # ------------------------
@@ -18,7 +27,7 @@ tracker = DeepSort(max_age=30)
 cap = cv2.VideoCapture(0)   # webcam
 
 # For video file use:
-# cap = cv2.VideoCapture(r"C:\Users\jerli\CCTV_Object_Tracking_Project\videos\test_video.mp4")
+# cap = cv2.VideoCapture(os.path.join(BASE_DIR, "videos", "test_video.mp4"))
 
 if not cap.isOpened():
     print("Camera not opened")
@@ -29,7 +38,7 @@ print("Camera running...")
 # ------------------------
 # DATABASE
 # ------------------------
-conn = sqlite3.connect("../database/object_history.db")
+conn = sqlite3.connect(DB_PATH)
 cursor = conn.cursor()
 
 cursor.execute("""

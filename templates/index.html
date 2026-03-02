@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,16 +8,17 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
+
 <body>
     <div class="sidebar">
-        <div class="logo">SENTINEL AI</div>
+        <div class="logo">CCTV TRACKING</div>
         <ul class="nav-links">
             <li class="active"><i class="fas fa-desktop"></i> &nbsp; Live Dashboard</li>
             <li><i class="fas fa-history"></i> &nbsp; History</li>
             <li><i class="fas fa-shield-halved"></i> &nbsp; Security Zones</li>
             <li><i class="fas fa-cog"></i> &nbsp; Settings</li>
         </ul>
-        
+
         <div class="search-container">
             <h3>Object Query</h3>
             <div class="search-input-wrapper">
@@ -24,6 +26,16 @@
                 <button class="mic-btn" id="startVoice"><i class="fas fa-microphone"></i></button>
             </div>
             <div id="searchResults" style="font-size: 0.9rem; color: #b0b0cc;"></div>
+        </div>
+
+        <div class="voice-settings">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 0.9rem; color: #b0b0cc;"><i class="fas fa-volume-up"></i> Voice Assistant</span>
+                <label class="switch">
+                    <input type="checkbox" id="voiceAssistantToggle">
+                    <span class="slider round"></span>
+                </label>
+            </div>
         </div>
     </div>
 
@@ -74,4 +86,5 @@
 
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
+
 </html>
