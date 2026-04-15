@@ -1,90 +1,560 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SENTINEL | CCTV AI Dashboard</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard — Indoor Object Finder</title>
+  <link rel="stylesheet" href="/static/css/style.css"/>
 </head>
-
 <body>
-    <div class="sidebar">
-        <div class="logo">CCTV TRACKING</div>
-        <ul class="nav-links">
-            <li class="active"><i class="fas fa-desktop"></i> &nbsp; Live Dashboard</li>
-            <li><i class="fas fa-history"></i> &nbsp; History</li>
-            <li><i class="fas fa-shield-halved"></i> &nbsp; Security Zones</li>
-            <li><i class="fas fa-cog"></i> &nbsp; Settings</li>
-        </ul>
 
-        <div class="search-container">
-            <h3>Object Query</h3>
-            <div class="search-input-wrapper">
-                <input type="text" class="search-input" id="objectSearch" placeholder="Type object name...">
-                <button class="mic-btn" id="startVoice"><i class="fas fa-microphone"></i></button>
-            </div>
-            <div id="searchResults" style="font-size: 0.9rem; color: #b0b0cc;"></div>
-        </div>
+<div class="sidebar-overlay" id="overlay" onclick="closeSidebar()"></div>
 
-        <div class="voice-settings">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span style="font-size: 0.9rem; color: #b0b0cc;"><i class="fas fa-volume-up"></i> Voice Assistant</span>
-                <label class="switch">
-                    <input type="checkbox" id="voiceAssistantToggle">
-                    <span class="slider round"></span>
-                </label>
-            </div>
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-mark">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    </div>
+    <div class="brand-text">
+      <div class="brand-name">Indoor<em>Finder</em></div>
+      <div class="brand-tagline">AI Object Tracking</div>
+    </div>
+    <button class="sidebar-toggle" id="toggle-btn">‹</button>
+  </div>
+  <nav class="nav-section">
+    <div class="nav-group-label">Main</div>
+    <a href="/" class="nav-link active" data-tip="Dashboard">
+      <span class="nav-icon">🏠</span><span class="nav-link-text">Dashboard</span>
+    </a>
+    <a href="/feed" class="nav-link" data-tip="Live Feed">
+      <span class="nav-icon">📷</span><span class="nav-link-text">Live Feed</span>
+    </a>
+    <a href="/find" class="nav-link" data-tip="Search">
+      <span class="nav-icon">🔍</span><span class="nav-link-text">Search Object</span>
+    </a>
+    <a href="/logs" class="nav-link" data-tip="Logs">
+      <span class="nav-icon">📋</span><span class="nav-link-text">Detection Logs</span>
+      <span class="nav-badge" id="nav-count">0</span>
+    </a>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="live-badge">
+      <span class="live-dot"></span>
+      <span class="live-badge-text">System Online</span>
+    </div>
+  </div>
+</aside>
+
+<div class="page" id="page">
+  <header class="topbar">
+    <div style="display:flex;align-items:center;gap:12px">
+      <button class="hamburger" onclick="openSidebar()">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="topbar-left">
+        <h1>Dashboard</h1>
+        <p>Real-time AI object tracking overview</p>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <span class="chip">● LIVE</span>
+      <span class="time-chip" id="sys-time">--:--:--</span>
+      <span id="user-chip" style="font-size:12px;padding:4px 10px;border-radius:20px;background:var(--surface);border:1px solid var(--border);color:var(--ink-dim)">👤</span>
+      <a href="/logout" class="btn btn-ghost btn-sm">Logout</a>
+      <button class="dark-toggle" id="dark-btn">🌙</button>
+    </div>
+  </header>
+
+  <main class="content">
+
+    <!-- STAT CARDS -->
+    <div class="stats-row anim-1">
+      <div class="stat-card red">
+        <div class="stat-card-top">
+          <div class="stat-icon">📦</div>
+          <span class="stat-trend-badge">↑ Live</span>
         </div>
+        <div class="stat-val" id="s-total">0</div>
+        <div class="stat-key">Total Detections</div>
+        <div class="stat-sub" id="s-total-sub">Loading…</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-card-top">
+          <div class="stat-icon">🏷️</div>
+          <span class="stat-trend-badge">Tracked</span>
+        </div>
+        <div class="stat-val" id="s-objects">0</div>
+        <div class="stat-key">Unique Objects</div>
+        <div class="stat-sub" id="s-obj-list">—</div>
+      </div>
+      <div class="stat-card blue">
+        <div class="stat-card-top">
+          <div class="stat-icon">🪑</div>
+          <span class="stat-trend-badge">Mapped</span>
+        </div>
+        <div class="stat-val" id="s-locations">0</div>
+        <div class="stat-key">Locations Found</div>
+        <div class="stat-sub" id="s-loc-list">—</div>
+      </div>
+      <div class="stat-card orange">
+        <div class="stat-card-top">
+          <div class="stat-icon">⚡</div>
+          <span class="stat-trend-badge">Latest</span>
+        </div>
+        <div class="stat-val" id="s-latest" style="font-size:18px;margin-top:6px">—</div>
+        <div class="stat-key">Last Detected</div>
+        <div class="stat-sub" id="s-latest-time">—</div>
+      </div>
     </div>
 
-    <div class="main-content">
-        <div class="header">
-            <h1>Activity Dashboard</h1>
-            <div class="status-badge">
-                <div class="status-dot"></div>
-                AI TRACKING ACTIVE
-            </div>
-        </div>
-
-        <div class="feed-container">
-            <div class="feed-overlay">LIVE | CAM-01 | INTERNAL</div>
-            <img id="videoFeed" src="{{ url_for('video_feed') }}" alt="Live Feed">
-        </div>
-
-        <div class="info-sidebar">
-            <div class="card">
-                <h3>System Health</h3>
-                <div style="display: flex; gap: 1rem; margin-top: 10px;">
-                    <div style="flex: 1; text-align: center;">
-                        <div style="font-size: 1.5rem; font-weight: 700;">60</div>
-                        <div style="font-size: 0.7rem; color: #b0b0cc;">FPS</div>
-                    </div>
-                    <div style="flex: 1; text-align: center;">
-                        <div style="font-size: 1.5rem; font-weight: 700; color: #7c4dff;">YOLO8</div>
-                        <div style="font-size: 0.7rem; color: #b0b0cc;">ENGINE</div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card" style="flex: 1; overflow-y: auto;">
-                <h3>Detection Log</h3>
-                <div class="log-list" id="activityLog">
-                    <!-- Logs will be injected here -->
-                    <div class="log-item">
-                        <div class="info">
-                            <div class="name">Initializing...</div>
-                            <div class="zone">Ready to track</div>
-                        </div>
-                        <div class="time">Now</div>
-                    </div>
-                </div>
-            </div>
-        </div>
+    <!-- AI INSIGHTS -->
+    <div style="font-size:12px;font-weight:700;color:var(--ink-dim);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px" class="anim-2">🧠 AI Insights</div>
+    <div class="insights-grid anim-2">
+      <div class="insight-card red">
+        <div class="insight-icon red">🔑</div>
+        <div><div class="insight-label">Most Misplaced</div><div class="insight-value" id="i-misplaced">Analyzing…</div><div class="insight-desc">Detected most frequently</div></div>
+      </div>
+      <div class="insight-card orange">
+        <div class="insight-icon orange">🕐</div>
+        <div><div class="insight-label">Peak Time</div><div class="insight-value" id="i-peak">Analyzing…</div><div class="insight-desc">Highest activity period</div></div>
+      </div>
+      <div class="insight-card blue">
+        <div class="insight-icon blue">🪑</div>
+        <div><div class="insight-label">Busiest Location</div><div class="insight-value" id="i-location">Analyzing…</div><div class="insight-desc">Most detections here</div></div>
+      </div>
+      <div class="insight-card green">
+        <div class="insight-icon green">✅</div>
+        <div><div class="insight-label">System Health</div><div class="insight-value">All Normal</div><div class="insight-desc">Camera & AI running</div></div>
+      </div>
+      <div class="insight-card purple">
+        <div class="insight-icon purple">📊</div>
+        <div><div class="insight-label">Detection Rate</div><div class="insight-value" id="i-rate">Calculating…</div><div class="insight-desc">Per hour average</div></div>
+      </div>
+      <div class="insight-card teal">
+        <div class="insight-icon teal">🔄</div>
+        <div><div class="insight-label">Most Movement</div><div class="insight-value" id="i-move">Analyzing…</div><div class="insight-desc">Changed location most</div></div>
+      </div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <!-- CHARTS -->
+    <div style="font-size:12px;font-weight:700;color:var(--ink-dim);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px" class="anim-3">📊 Analytics</div>
+    <div class="charts-grid anim-3">
+      <div class="chart-card wide">
+        <div class="chart-title">Objects Detected Over Time</div>
+        <div class="chart-sub">Detection count per hour — last 24 hours</div>
+        <div style="height:200px;position:relative"><canvas id="chart-timeline"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Location Activity</div>
+        <div class="chart-sub">Detections by furniture location</div>
+        <div style="height:200px;position:relative;display:flex;align-items:center;justify-content:center"><canvas id="chart-zones"></canvas></div>
+      </div>
+      <div class="chart-card wide">
+        <div class="chart-title">Most Detected Objects</div>
+        <div class="chart-sub">Top objects ranked by detection count</div>
+        <div style="height:200px;position:relative"><canvas id="chart-objects"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Movement Events</div>
+        <div class="chart-sub">How often each object moved locations</div>
+        <div style="height:200px;position:relative;display:flex;align-items:center;justify-content:center"><canvas id="chart-movement"></canvas></div>
+      </div>
+    </div>
+
+    <!-- LOCATION MAP + TIMELINE + ALERTS -->
+    <div class="anim-4" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-bottom:22px">
+
+      <!-- Location Map — shows real furniture names -->
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">🪑 Location Map</span>
+          <span class="badge badge-green" id="loc-map-badge">Scanning…</span>
+        </div>
+        <div id="location-map" style="display:flex;flex-direction:column;gap:8px">
+          <div style="text-align:center;padding:20px;color:var(--ink-dim);font-size:13px">Loading locations…</div>
+        </div>
+      </div>
+
+      <!-- Timeline -->
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">🕒 Timeline</span>
+          <a href="/logs" class="btn btn-ghost btn-sm">All</a>
+        </div>
+        <div class="timeline" id="timeline-wrap">
+          <div style="text-align:center;padding:20px;color:var(--ink-dim);font-size:13px">Loading…</div>
+        </div>
+      </div>
+
+      <!-- Alerts -->
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">🔔 Alerts</span>
+          <span class="alert-badge" id="alert-badge">Checking…</span>
+        </div>
+        <div id="alerts-wrap">
+          <div style="text-align:center;padding:24px;color:var(--ink-dim);font-size:13px">✅ No alerts</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RECENT + QUICK SEARCH + CAMERA -->
+    <div class="grid-2 anim-5">
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Recent Activity</span>
+          <a href="/logs" class="btn btn-ghost btn-sm">View All</a>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Object</th><th>Location</th><th>Time</th></tr></thead>
+            <tbody id="recent-body">
+              <tr><td colspan="3" class="table-empty">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><span class="card-title">⚡ Quick Search</span></div>
+        <div class="field-group" style="margin-bottom:12px">
+          <label class="field-label">Find an Object</label>
+          <input class="field-input" type="text" id="quick-input" placeholder="e.g. remote, wallet, keys…" autocomplete="off"/>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button id="quick-btn" class="btn btn-red" style="flex:1">🔍 Search</button>
+          <a href="/find" class="btn btn-outline">Full Search</a>
+        </div>
+        <div id="quick-result" class="result-box hidden"></div>
+        <div class="divider"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <span style="font-size:13px;font-weight:700;color:var(--ink)">Camera Preview</span>
+          <a href="/feed" class="btn btn-ghost btn-sm">Full View</a>
+        </div>
+        <div class="feed-wrap">
+          <img src="/video_feed" alt="Live feed"/>
+          <div class="feed-hud">
+            <div class="feed-rec"><span class="feed-rec-dot"></span> REC</div>
+            <div class="feed-meta"><span>CAM_01</span><span>LIVE</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Chart.js loaded BEFORE any script uses it -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+// ── THEME ──────────────────────────────────────────────────
+const darkBtn = document.getElementById('dark-btn');
+let dark = localStorage.getItem('theme') === 'dark';
+function applyTheme() {
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : '');
+  darkBtn.textContent = dark ? '☀️' : '🌙';
+  localStorage.setItem('theme', dark ? 'dark' : 'light');
+}
+applyTheme();
+darkBtn.addEventListener('click', () => { dark = !dark; applyTheme(); if (window._lastData) buildCharts(window._lastData); });
+
+// ── SIDEBAR ────────────────────────────────────────────────
+const sidebar = document.getElementById('sidebar');
+const tBtn    = document.getElementById('toggle-btn');
+let collapsed = localStorage.getItem('sidebar') === 'collapsed';
+function applySidebar() {
+  sidebar.classList.toggle('collapsed', collapsed);
+  document.body.classList.toggle('sidebar-collapsed', collapsed);
+  tBtn.textContent = collapsed ? '›' : '‹';
+  localStorage.setItem('sidebar', collapsed ? 'collapsed' : '');
+}
+applySidebar();
+tBtn.addEventListener('click', () => { collapsed = !collapsed; applySidebar(); });
+function openSidebar()  { sidebar.classList.add('mobile-open');    document.getElementById('overlay').classList.add('show');    document.body.style.overflow='hidden'; }
+function closeSidebar() { sidebar.classList.remove('mobile-open'); document.getElementById('overlay').classList.remove('show'); document.body.style.overflow=''; }
+
+// ── CLOCK ─────────────────────────────────────────────────
+setInterval(() => { document.getElementById('sys-time').textContent = new Date().toTimeString().slice(0,8); }, 1000);
+
+// ── SESSION ────────────────────────────────────────────────
+fetch('/api/session').then(r=>r.json()).then(d => {
+  if (d.logged_in) document.getElementById('user-chip').textContent = '👤 ' + d.user;
+}).catch(()=>{});
+
+// ── OBJECT ICONS ──────────────────────────────────────────
+const OBJ_ICONS = {
+  'remote control':'📺','keys':'🔑','wallet':'👛',
+  'bottle':'🍶','book':'📖','glasses sunglasses':'👓','earphone':'🎧'
+};
+function getObjIcon(obj) { return OBJ_ICONS[(obj||'').toLowerCase()] || '📦'; }
+
+// Location icons for furniture
+const LOC_ICONS = {
+  'chair':'🪑','bed':'🛏️','dining table':'🍽️','sofa':'🛋️',
+  'couch':'🛋️','desk':'🖥️','table':'🪵','bench':'🪑',
+  'tv stand':'📺','laptop':'💻','unknown':'❓'
+};
+function getLocIcon(loc) { return LOC_ICONS[(loc||'').toLowerCase()] || '📍'; }
+
+// ── CHARTS ────────────────────────────────────────────────
+let charts = {};
+const PALETTE = ['#C0392B','#1E40AF','#059669','#D97706','#6D28D9','#0F766E','#E74C3C','#F59E0B'];
+
+function chartD() {
+  const dk = document.documentElement.getAttribute('data-theme') === 'dark';
+  return {
+    text: dk ? '#94A3B8' : '#475569',
+    grid: dk ? 'rgba(255,255,255,0.05)' : 'rgba(30,64,175,0.06)',
+    bg:   dk ? '#0F172A' : '#FFFFFF',
+  };
+}
+
+function destroyAll() { Object.values(charts).forEach(c => { try { c.destroy(); } catch(e){} }); charts = {}; }
+
+function buildCharts(data) {
+  destroyAll();
+  const D = chartD();
+
+  // Line chart — detections over time
+  const hB = {};
+  data.forEach(r => { if (r.timestamp) { const h=r.timestamp.slice(11,13)+':00'; hB[h]=(hB[h]||0)+1; } });
+  const hours = Array.from({length:24},(_,i)=>String(i).padStart(2,'0')+':00');
+  charts.tl = new Chart(document.getElementById('chart-timeline'), {
+    type:'line',
+    data:{ labels:hours, datasets:[{ label:'Detections', data:hours.map(h=>hB[h]||0), borderColor:'#C0392B', borderWidth:2.5, backgroundColor:'rgba(192,57,43,0.1)', fill:true, tension:0.45, pointRadius:3, pointBackgroundColor:'#C0392B' }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:D.text,maxTicksLimit:12,font:{size:10}},grid:{color:D.grid}}, y:{ticks:{color:D.text,font:{size:10}},grid:{color:D.grid},beginAtZero:true} } }
+  });
+
+  // Doughnut — locations (chair, bed, table etc.)
+  const lC = {};
+  data.forEach(r => { if (r.zone && r.zone!=='unknown') lC[r.zone]=(lC[r.zone]||0)+1; });
+  if (!Object.keys(lC).length) lC['No Data']=1;
+  charts.loc = new Chart(document.getElementById('chart-zones'), {
+    type:'doughnut',
+    data:{ labels:Object.keys(lC), datasets:[{ data:Object.values(lC), backgroundColor:PALETTE, borderWidth:2, borderColor:D.bg }] },
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'62%', plugins:{legend:{position:'bottom',labels:{color:D.text,font:{size:11},padding:10}}} }
+  });
+
+  // Bar — objects
+  const oC = {};
+  data.forEach(r => { if (r.object) oC[r.object]=(oC[r.object]||0)+1; });
+  const topO = Object.entries(oC).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  if (!topO.length) topO.push(['No Data',0]);
+  charts.obj = new Chart(document.getElementById('chart-objects'), {
+    type:'bar',
+    data:{ labels:topO.map(o=>o[0]), datasets:[{ label:'Count', data:topO.map(o=>o[1]), backgroundColor:topO.map((_,i)=>PALETTE[i%PALETTE.length]+'CC'), borderColor:topO.map((_,i)=>PALETTE[i%PALETTE.length]), borderWidth:1.5, borderRadius:6 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:D.text,font:{size:11}},grid:{display:false}}, y:{ticks:{color:D.text,font:{size:10}},grid:{color:D.grid},beginAtZero:true} } }
+  });
+
+  // Polar — movement
+  const mC = {};
+  data.filter(r=>r.movement&&r.movement!=='—'&&r.movement!=='unknown').forEach(r => { mC[r.object||'?']=(mC[r.object||'?']||0)+1; });
+  const topM = Object.entries(mC).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  if (!topM.length) topM.push(['No Movement',0]);
+  charts.mov = new Chart(document.getElementById('chart-movement'), {
+    type:'polarArea',
+    data:{ labels:topM.map(o=>o[0]), datasets:[{ data:topM.map(o=>o[1]), backgroundColor:PALETTE.map(c=>c+'99'), borderColor:PALETTE, borderWidth:1.5 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom',labels:{color:D.text,font:{size:11},padding:8}}}, scales:{r:{ticks:{color:D.text,backdropColor:'transparent',font:{size:10}},grid:{color:D.grid}}} }
+  });
+}
+
+// ── AI INSIGHTS ───────────────────────────────────────────
+function buildInsights(data) {
+  if (!data.length) return;
+  const oC={}, hC={}, lC={}, mC={};
+  data.forEach(r => {
+    if (r.object) oC[r.object]=(oC[r.object]||0)+1;
+    if (r.timestamp) { const h=parseInt(r.timestamp.slice(11,13)); const p=h<6?'Night':h<12?'Morning':h<17?'Afternoon':h<21?'Evening':'Night'; hC[p]=(hC[p]||0)+1; }
+    if (r.zone && r.zone!=='unknown') lC[r.zone]=(lC[r.zone]||0)+1;
+    if (r.movement && r.movement!=='—' && r.movement!=='unknown') mC[r.object||'?']=(mC[r.object||'?']||0)+1;
+  });
+  const topO=Object.entries(oC).sort((a,b)=>b[1]-a[1])[0];
+  const topP=Object.entries(hC).sort((a,b)=>b[1]-a[1])[0];
+  const topL=Object.entries(lC).sort((a,b)=>b[1]-a[1])[0];
+  const topM=Object.entries(mC).sort((a,b)=>b[1]-a[1])[0];
+  if(topO) document.getElementById('i-misplaced').textContent = `${topO[0]} (${topO[1]}×)`;
+  if(topP) document.getElementById('i-peak').textContent      = topP[0];
+  if(topL) document.getElementById('i-location').textContent  = `${topL[0]} (${topL[1]} times)`;
+  document.getElementById('i-rate').textContent = `~${(data.length/24).toFixed(1)}/hr`;
+  if(topM) document.getElementById('i-move').textContent      = `${topM[0]} (${topM[1]}×)`;
+}
+
+// ── LOCATION MAP — shows chair, bed, table etc. ───────────
+function buildLocationMap(data) {
+  const locCounts = {};
+  data.forEach(r => {
+    if (r.zone && r.zone !== 'unknown') {
+      locCounts[r.zone] = (locCounts[r.zone] || 0) + 1;
+    }
+  });
+
+  const badge = document.getElementById('loc-map-badge');
+  const mapEl  = document.getElementById('location-map');
+
+  if (!Object.keys(locCounts).length) {
+    badge.textContent = 'No Data';
+    badge.className   = 'badge badge-grey';
+    mapEl.innerHTML   = '<div style="text-align:center;padding:20px;color:var(--ink-dim);font-size:13px">No furniture locations detected yet</div>';
+    return;
+  }
+
+  const total = Object.values(locCounts).reduce((a,b)=>a+b,0);
+  badge.textContent = `${Object.keys(locCounts).length} locations`;
+  badge.className   = 'badge badge-green';
+
+  // Latest object per location
+  const latestPerLoc = {};
+  data.forEach(r => {
+    if (r.zone && r.zone !== 'unknown') {
+      if (!latestPerLoc[r.zone]) latestPerLoc[r.zone] = r.object;
+    }
+  });
+
+  const sorted = Object.entries(locCounts).sort((a,b)=>b[1]-a[1]);
+  const colors = ['red','green','blue','orange','purple','teal'];
+
+  mapEl.innerHTML = sorted.map(([loc, cnt], i) => {
+    const pct   = Math.round((cnt / total) * 100);
+    const col   = colors[i % colors.length];
+    const lastObj = latestPerLoc[loc] || '—';
+    return `
+      <div style="background:var(--card-bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;transition:all var(--t)" 
+           onmouseover="this.style.borderColor='var(--red)'" onmouseout="this.style.borderColor='var(--border)'">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <span style="font-size:20px">${getLocIcon(loc)}</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:700;color:var(--ink);text-transform:capitalize">${loc}</div>
+            <div style="font-size:11px;color:var(--ink-dim);margin-top:1px">Last: ${getObjIcon(lastObj)} ${lastObj}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-family:var(--font-mono);font-size:16px;font-weight:700;color:var(--red)">${cnt}</div>
+            <div style="font-size:10px;color:var(--ink-faint)">detections</div>
+          </div>
+        </div>
+        <div style="height:5px;background:var(--surface2);border-radius:3px;overflow:hidden">
+          <div style="width:${pct}%;height:100%;background:linear-gradient(90deg,var(--red),var(--red-light));border-radius:3px;transition:width 0.8s ease"></div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ── TIMELINE ──────────────────────────────────────────────
+function dotColor(obj) {
+  const o=(obj||'').toLowerCase();
+  if(o.includes('key'))    return 'orange';
+  if(o.includes('remote')) return 'blue';
+  if(o.includes('wallet')) return 'red';
+  return 'green';
+}
+
+function buildTimeline(data) {
+  const el = document.getElementById('timeline-wrap');
+  if (!data.length) { el.innerHTML='<div style="text-align:center;padding:20px;color:var(--ink-dim)">No activity</div>'; return; }
+  el.innerHTML = data.slice(0,7).map((r,i) => `
+    <div class="timeline-item" style="animation-delay:${i*50}ms">
+      <div class="timeline-dot ${dotColor(r.object)}">${getObjIcon(r.object)}</div>
+      <div class="timeline-content">
+        <div class="timeline-time">${r.timestamp||'—'}</div>
+        <div class="timeline-title">
+          ${r.object||'—'}
+          <span class="timeline-badge ${r.zone&&r.zone!=='unknown'?'active':'moved'}">${r.zone&&r.zone!=='unknown'?r.zone:'unknown'}</span>
+        </div>
+        <div class="timeline-sub">Track #${r.track_id||'—'}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ── ALERTS ────────────────────────────────────────────────
+function buildAlerts(data) {
+  const alerts = [];
+  // Check unknown locations
+  const unknownCount = data.filter(r=>!r.zone||r.zone==='unknown').length;
+  if (unknownCount > 3) alerts.push({type:'warning',icon:'⚠️',title:`${unknownCount} detections with unknown location`,desc:'Camera may not be seeing furniture clearly'});
+  // Check frequent movers
+  const mC={};
+  data.forEach(r=>{ if(r.movement&&r.movement!=='—'&&r.movement!=='unknown') mC[r.object]=(mC[r.object]||0)+1; });
+  Object.entries(mC).filter(([,v])=>v>3).forEach(([k,v])=>alerts.push({type:'info',icon:'🔄',title:`${k} moved ${v} times`,desc:'High movement — check its location'}));
+
+  document.getElementById('alert-badge').textContent = alerts.length ? `${alerts.length} Active` : '✅ Clear';
+  document.getElementById('alerts-wrap').innerHTML = alerts.length
+    ? alerts.slice(0,4).map((a,i)=>`
+        <div class="alert-item ${a.type}" style="animation-delay:${i*40}ms">
+          <span class="alert-icon">${a.icon}</span>
+          <div><div class="alert-title">${a.title}</div><div class="alert-desc">${a.desc}</div></div>
+        </div>`).join('')
+    : '<div style="text-align:center;padding:24px;font-size:22px">✅<br><span style="font-size:13px;color:var(--ink-dim)">No alerts</span></div>';
+}
+
+// ── MAIN LOAD ─────────────────────────────────────────────
+async function loadAll() {
+  try {
+    const data = await fetch('/api/logs').then(r=>r.json());
+    window._lastData = data;
+
+    const objects   = [...new Set(data.map(r=>r.object))];
+    const locations = [...new Set(data.filter(r=>r.zone&&r.zone!=='unknown').map(r=>r.zone))];
+    const latest    = data[0];
+
+    document.getElementById('s-total').textContent      = data.length;
+    document.getElementById('s-objects').textContent    = objects.length;
+    document.getElementById('s-locations').textContent  = locations.length;
+    document.getElementById('s-latest').textContent     = latest?.object || '—';
+    document.getElementById('s-total-sub').textContent  = `${data.length} total records`;
+    document.getElementById('s-obj-list').textContent   = objects.slice(0,3).join(', ') || '—';
+    document.getElementById('s-loc-list').textContent   = locations.slice(0,3).join(', ') || '—';
+    document.getElementById('s-latest-time').textContent= latest?.timestamp || '—';
+    document.getElementById('nav-count').textContent    = data.length;
+
+    // Recent table — show real location names
+    document.getElementById('recent-body').innerHTML = data.slice(0,8).map((r,i)=>`
+      <tr class="row-in" style="animation-delay:${i*25}ms">
+        <td>${getObjIcon(r.object)} ${r.object||'—'}</td>
+        <td>
+          ${r.zone&&r.zone!=='unknown'
+            ? `<span class="badge badge-blue">${getLocIcon(r.zone)} ${r.zone}</span>`
+            : '<span class="badge badge-grey">Unknown</span>'}
+        </td>
+        <td style="color:var(--ink-dim);font-size:11px;font-family:var(--font-mono)">${r.timestamp||'—'}</td>
+      </tr>`).join('') || '<tr><td colspan="3" class="table-empty">No data yet</td></tr>';
+
+    buildCharts(data);
+    buildInsights(data);
+    buildLocationMap(data);
+    buildTimeline(data);
+    buildAlerts(data);
+
+  } catch(e) { console.error('loadAll error:', e); }
+}
+
+// Quick search
+document.getElementById('quick-btn').addEventListener('click', async () => {
+  const q = document.getElementById('quick-input').value.trim();
+  if (!q) return;
+  const btn = document.getElementById('quick-btn');
+  btn.disabled=true; btn.textContent='⏳ Searching…';
+  try {
+    const d = await fetch('/search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({object:q})}).then(r=>r.json());
+    const box = document.getElementById('quick-result');
+    box.innerHTML=`<div class="response-bubble"><span class="response-icon">📍</span><span class="response-text">${d.message}</span></div>`;
+    box.classList.remove('hidden');
+  } catch(e){} finally { btn.disabled=false; btn.textContent='🔍 Search'; }
+});
+document.getElementById('quick-input').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('quick-btn').click(); });
+
+// ── INIT ──────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  // Wait for Chart.js to be ready
+  let tries = 0;
+  function tryLoad() {
+    if (typeof Chart !== 'undefined') {
+      loadAll();
+      setInterval(loadAll, 8000);
+    } else if (tries++ < 20) {
+      setTimeout(tryLoad, 200);
+    }
+  }
+  tryLoad();
+});
+</script>
 </body>
-
 </html>

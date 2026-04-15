@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+  <title>Login — Indoor Object Finder</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --red:      #C0392B;
+      --red-dark: #962d22;
+      --red-light:#E74C3C;
+      --red-pale: #FADBD8;
+      --red-faint:#FEF5F4;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Poppins', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #fff5f4 0%, #ffffff 50%, #fef5f4 100%);
+      position: relative;
+      overflow: hidden;
+      padding: 20px;
+    }
+
+    /* Decorative background circles */
+    body::before {
+      content: '';
+      position: fixed;
+      width: 500px; height: 500px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(192,57,43,0.08) 0%, transparent 70%);
+      top: -150px; right: -150px;
+      pointer-events: none;
+    }
+    body::after {
+      content: '';
+      position: fixed;
+      width: 400px; height: 400px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(192,57,43,0.06) 0%, transparent 70%);
+      bottom: -100px; left: -100px;
+      pointer-events: none;
+    }
+
+    .login-wrap {
+      width: 100%;
+      max-width: 420px;
+      z-index: 1;
+      animation: slideUp 0.5s ease both;
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Top brand area */
+    .login-brand {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    .brand-icon {
+      width: 64px; height: 64px;
+      background: linear-gradient(135deg, var(--red), var(--red-light));
+      border-radius: 18px;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 14px;
+      box-shadow: 0 8px 24px rgba(192,57,43,0.35);
+      font-size: 28px;
+      animation: iconPop 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.2s both;
+    }
+
+    @keyframes iconPop {
+      from { transform: scale(0.5); opacity: 0; }
+      to   { transform: scale(1);   opacity: 1; }
+    }
+
+    .brand-title {
+      font-size: 26px; font-weight: 800;
+      color: #111827;
+    }
+    .brand-title span { color: var(--red); }
+
+    .brand-sub {
+      font-size: 13px; color: #6B7280; margin-top: 4px;
+    }
+
+    /* Card */
+    .login-card {
+      background: #ffffff;
+      border-radius: 20px;
+      padding: 32px 28px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04);
+      border: 1px solid #F3F4F6;
+    }
+
+    .login-card h2 {
+      font-size: 18px; font-weight: 700;
+      color: #111827; margin-bottom: 6px;
+    }
+    .login-card p {
+      font-size: 13px; color: #6B7280; margin-bottom: 24px;
+    }
+
+    .field { margin-bottom: 16px; }
+
+    .field label {
+      display: block; font-size: 13px; font-weight: 600;
+      color: #374151; margin-bottom: 6px;
+    }
+
+    .field-inner {
+      position: relative;
+    }
+
+    .field-icon {
+      position: absolute; left: 12px; top: 50%;
+      transform: translateY(-50%);
+      font-size: 16px; pointer-events: none;
+      opacity: 0.5;
+    }
+
+    .field input {
+      width: 100%;
+      padding: 12px 14px 12px 40px;
+      border: 1.5px solid #E5E7EB;
+      border-radius: 10px;
+      font-family: 'Poppins', sans-serif;
+      font-size: 14px; color: #111827;
+      background: #FAFAFA; outline: none;
+      transition: all 0.2s;
+      -webkit-appearance: none;
+    }
+    .field input::placeholder { color: #D1D5DB; }
+    .field input:focus {
+      border-color: var(--red);
+      background: #fff;
+      box-shadow: 0 0 0 3px rgba(192,57,43,0.1);
+    }
+
+    /* Show password toggle */
+    .toggle-pw {
+      position: absolute; right: 12px; top: 50%;
+      transform: translateY(-50%);
+      cursor: pointer; font-size: 15px; opacity: 0.4;
+      transition: opacity 0.2s; user-select: none;
+    }
+    .toggle-pw:hover { opacity: 0.8; }
+
+    /* Remember row */
+    .remember-row {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .remember-row label {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 13px; color: #6B7280; cursor: pointer;
+    }
+    .remember-row input[type="checkbox"] {
+      width: 16px; height: 16px;
+      accent-color: var(--red); cursor: pointer;
+    }
+    .forgot { font-size: 13px; color: var(--red); text-decoration: none; }
+    .forgot:hover { text-decoration: underline; }
+
+    /* Submit button */
+    .btn-login {
+      width: 100%; padding: 14px;
+      background: linear-gradient(135deg, var(--red), var(--red-light));
+      color: white; border: none;
+      border-radius: 10px;
+      font-family: 'Poppins', sans-serif;
+      font-size: 15px; font-weight: 700;
+      cursor: pointer; letter-spacing: 0.02em;
+      box-shadow: 0 4px 16px rgba(192,57,43,0.35);
+      transition: all 0.2s;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .btn-login:hover:not(:disabled) {
+      background: linear-gradient(135deg, var(--red-dark), var(--red));
+      transform: translateY(-1px);
+      box-shadow: 0 6px 22px rgba(192,57,43,0.45);
+    }
+    .btn-login:active { transform: translateY(0); }
+    .btn-login:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+    /* Error / success */
+    .msg-box {
+      padding: 11px 14px; border-radius: 8px;
+      font-size: 13px; font-weight: 500; margin-bottom: 16px;
+      display: none; align-items: center; gap: 8px;
+      animation: fadeIn 0.3s ease;
+    }
+    @keyframes fadeIn { from{opacity:0;} to{opacity:1;} }
+
+    .msg-box.error {
+      background: #FEF5F4; border: 1px solid var(--red-pale); color: var(--red);
+      display: flex;
+    }
+    .msg-box.success {
+      background: #EAFAF1; border: 1px solid #A9DFBF; color: #27AE60;
+      display: flex;
+    }
+
+    /* Demo credentials */
+    .demo-creds {
+      margin-top: 20px; padding: 14px;
+      background: #F9FAFB; border: 1px dashed #E5E7EB;
+      border-radius: 10px; text-align: center;
+    }
+    .demo-creds p {
+      font-size: 12px; color: #6B7280; margin-bottom: 8px; font-weight: 600;
+    }
+    .demo-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 14px; border-radius: 20px; font-size: 12.5px;
+      font-family: 'Poppins', sans-serif; font-weight: 600;
+      cursor: pointer; transition: all 0.18s; border: none; margin: 3px;
+    }
+    .demo-btn.admin {
+      background: var(--red-faint); color: var(--red); border: 1px solid var(--red-pale);
+    }
+    .demo-btn.guest {
+      background: #EBF5FB; color: #2980B9; border: 1px solid #AED6F1;
+    }
+    .demo-btn:hover { transform: scale(1.03); }
+
+    /* Footer */
+    .login-footer {
+      text-align: center; margin-top: 20px;
+      font-size: 12px; color: #9CA3AF;
+    }
+
+    /* ── MOBILE TWEAKS ── */
+    @media (max-width: 480px) {
+      .login-card { padding: 24px 20px; border-radius: 16px; }
+      .brand-icon  { width: 56px; height: 56px; font-size: 24px; border-radius: 14px; }
+      .brand-title { font-size: 22px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="login-wrap">
+
+  <!-- Brand -->
+  <div class="login-brand">
+    <div class="brand-icon">🔍</div>
+    <div class="brand-title">Indoor<span>Finder</span></div>
+    <div class="brand-sub">AI Object Tracking System</div>
+  </div>
+
+  <!-- Card -->
+  <div class="login-card">
+    <h2>Welcome back 👋</h2>
+    <p>Sign in to access your tracking dashboard</p>
+
+    <!-- Error message -->
+    <div class="msg-box" id="msg-box">
+      <span id="msg-icon">⚠️</span>
+      <span id="msg-text">Invalid username or password.</span>
+    </div>
+
+    <!-- Username -->
+    <div class="field">
+      <label for="username">Username</label>
+      <div class="field-inner">
+        <span class="field-icon">👤</span>
+        <input type="text" id="username" placeholder="Enter your username"
+               autocomplete="username" autocapitalize="none" spellcheck="false"/>
+      </div>
+    </div>
+
+    <!-- Password -->
+    <div class="field">
+      <label for="password">Password</label>
+      <div class="field-inner">
+        <span class="field-icon">🔒</span>
+        <input type="password" id="password" placeholder="Enter your password"
+               autocomplete="current-password"/>
+        <span class="toggle-pw" id="toggle-pw" title="Show/hide password">👁️</span>
+      </div>
+    </div>
+
+    <!-- Remember / Forgot -->
+    <div class="remember-row">
+      <label>
+        <input type="checkbox" id="remember"/>
+        Remember me
+      </label>
+      <a href="#" class="forgot">Forgot password?</a>
+    </div>
+
+    <!-- Submit -->
+    <button class="btn-login" id="login-btn">
+      <span id="btn-text">Sign In</span>
+    </button>
+
+    <!-- Demo creds -->
+    <div class="demo-creds">
+      <p>🔑 Demo Credentials</p>
+      <button class="demo-btn admin" onclick="fillCreds('admin','admin123')">👑 Admin</button>
+      <button class="demo-btn guest" onclick="fillCreds('guest','guest123')">👁️ Guest</button>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="login-footer">
+    IndoorFinder v2.0 · AI Object Tracking · Secured
+  </div>
+
+</div>
+
+<script>
+  // Show/hide password
+  const pwInput = document.getElementById('password');
+  document.getElementById('toggle-pw').addEventListener('click', () => {
+    const show = pwInput.type === 'password';
+    pwInput.type = show ? 'text' : 'password';
+    document.getElementById('toggle-pw').textContent = show ? '🙈' : '👁️';
+  });
+
+  // Fill demo credentials
+  function fillCreds(user, pass) {
+    document.getElementById('username').value = user;
+    document.getElementById('password').value = pass;
+    document.getElementById('username').focus();
+  }
+
+  // Show message
+  function showMsg(text, type = 'error') {
+    const box  = document.getElementById('msg-box');
+    const icon = document.getElementById('msg-icon');
+    const txt  = document.getElementById('msg-text');
+    box.className = 'msg-box ' + type;
+    icon.textContent = type === 'error' ? '⚠️' : '✅';
+    txt.textContent  = text;
+    box.style.display = 'flex';
+  }
+
+  // Login
+  async function doLogin() {
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    const btn      = document.getElementById('login-btn');
+    const btnText  = document.getElementById('btn-text');
+    const msgBox   = document.getElementById('msg-box');
+
+    msgBox.style.display = 'none';
+
+    if (!username || !password) {
+      showMsg('Please enter both username and password.');
+      return;
+    }
+
+    btn.disabled  = true;
+    btnText.textContent = '⏳ Signing in…';
+
+    try {
+      const res  = await fetch('/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await res.json();
+
+      if (data.ok) {
+        showMsg(`Welcome back, ${data.user}! Redirecting…`, 'success');
+        btnText.textContent = '✅ Success!';
+        setTimeout(() => { window.location.href = '/'; }, 800);
+      } else {
+        showMsg(data.error || 'Invalid credentials.');
+        btnText.textContent = 'Sign In';
+        btn.disabled = false;
+        document.getElementById('password').value = '';
+        document.getElementById('password').focus();
+      }
+    } catch(e) {
+      showMsg('Cannot connect to server. Is Flask running?');
+      btnText.textContent = 'Sign In';
+      btn.disabled = false;
+    }
+  }
+
+  document.getElementById('login-btn').addEventListener('click', doLogin);
+  document.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+  // Auto-fill from localStorage if remember was checked
+  const saved = localStorage.getItem('iof_user');
+  if (saved) {
+    document.getElementById('username').value = saved;
+    document.getElementById('remember').checked = true;
+    document.getElementById('password').focus();
+  }
+
+  // Save username on remember
+  document.getElementById('login-btn').addEventListener('click', () => {
+    const uname = document.getElementById('username').value.trim();
+    if (document.getElementById('remember').checked && uname) {
+      localStorage.setItem('iof_user', uname);
+    } else {
+      localStorage.removeItem('iof_user');
+    }
+  });
+</script>
+</body>
+</html>

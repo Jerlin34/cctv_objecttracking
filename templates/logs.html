@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Detection Logs — Indoor Object Finder</title>
+  <link rel="stylesheet" href="/static/css/style.css"/>
+</head>
+<body>
+<div class="sidebar-overlay" id="overlay" onclick="closeSidebar()"></div>
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-mark">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    </div>
+    <div class="brand-text">
+      <div class="brand-name">Indoor<em>Finder</em></div>
+      <div class="brand-tagline">AI Object Tracking</div>
+    </div>
+    <button class="sidebar-toggle" id="toggle-btn">‹</button>
+  </div>
+  <nav class="nav-section">
+    <div class="nav-group-label">Main</div>
+    <a href="/" class="nav-link" data-tip="Dashboard"><span class="nav-icon">🏠</span><span class="nav-link-text">Dashboard</span></a>
+    <a href="/feed" class="nav-link" data-tip="Live Feed"><span class="nav-icon">📷</span><span class="nav-link-text">Live Feed</span></a>
+    <a href="/find" class="nav-link" data-tip="Search"><span class="nav-icon">🔍</span><span class="nav-link-text">Search Object</span></a>
+    <a href="/logs" class="nav-link active" data-tip="Logs"><span class="nav-icon">📋</span><span class="nav-link-text">Detection Logs</span></a>
+  </nav>
+  <div class="sidebar-footer"><div class="live-badge"><span class="live-dot"></span><span class="live-badge-text">System Online</span></div></div>
+</aside>
+
+<div class="page">
+  <header class="topbar">
+    <div style="display:flex;align-items:center;gap:12px">
+      <button class="hamburger" onclick="openSidebar()"><span></span><span></span><span></span></button>
+      <div class="topbar-left">
+      <h1>Detection Logs</h1>
+      <p>Full history of all tracked object detections</p>
+    </div>
+    </div>
+    <div class="topbar-right">
+      <span class="chip" id="log-count-chip">0 records</span>
+      <div class="export-wrap">
+        <button class="btn btn-green btn-sm" id="export-btn">📤 Export</button>
+        <div class="export-menu hidden" id="export-menu">
+          <button class="export-opt" id="export-csv">📊 Download CSV</button>
+          <button class="export-opt" id="export-print">🖨️ Print / PDF</button>
+        </div>
+      </div>
+      <button id="refresh-btn" class="btn-icon-only" title="Refresh">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M12 7A5 5 0 1 1 7 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><polyline points="10,0.5 12,2 10,3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+      </button>
+      <span class="time-chip" id="sys-time">--:--:--</span>
+      <a href="/logout" class="btn btn-ghost btn-sm" style="font-size:12px">Logout</a>
+      <button class="dark-toggle" id="dark-btn">🌙</button>
+    </div>
+  </header>
+
+  <main class="content">
+
+    <!-- STAT STRIP -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px" class="anim-1">
+      <div class="stat-card red" style="padding:16px 18px">
+        <div class="stat-card-top">
+          <div class="stat-icon red" style="width:34px;height:34px;font-size:16px">📦</div>
+        </div>
+        <div class="stat-val" id="ls-total" style="font-size:26px">—</div>
+        <div class="stat-key">Total Logs</div>
+      </div>
+      <div class="stat-card blue" style="padding:16px 18px">
+        <div class="stat-card-top">
+          <div class="stat-icon blue" style="width:34px;height:34px;font-size:16px">🏷️</div>
+        </div>
+        <div class="stat-val" id="ls-objects" style="font-size:26px">—</div>
+        <div class="stat-key">Unique Objects</div>
+      </div>
+      <div class="stat-card green" style="padding:16px 18px">
+        <div class="stat-card-top">
+          <div class="stat-icon green" style="width:34px;height:34px;font-size:16px">📍</div>
+        </div>
+        <div class="stat-val" id="ls-zones" style="font-size:26px">—</div>
+        <div class="stat-key">Zones Active</div>
+      </div>
+      <div class="stat-card orange" style="padding:16px 18px">
+        <div class="stat-card-top">
+          <div class="stat-icon orange" style="width:34px;height:34px;font-size:16px">⚡</div>
+        </div>
+        <div class="stat-val" id="ls-latest" style="font-size:16px;margin-top:6px">—</div>
+        <div class="stat-key">Latest Object</div>
+      </div>
+    </div>
+
+    <!-- FILTERS -->
+    <div class="filters-bar anim-2">
+      <span class="filter-label">🔎 Filter:</span>
+      <input class="field-input" id="f-obj"  placeholder="Object name…" />
+      <input class="field-input" id="f-zone" placeholder="Zone…" />
+      <input class="field-input" id="f-date" type="date" />
+      <select class="field-input" id="f-move" style="max-width:150px">
+        <option value="">All movements</option>
+        <option value="has">Has movement</option>
+        <option value="none">No movement</option>
+      </select>
+      <button class="btn btn-ghost btn-sm" id="clear-f">✕ Clear</button>
+      <span style="margin-left:auto;font-size:12.5px;color:var(--ink-dim)" id="filter-count"></span>
+    </div>
+
+    <!-- TABLE -->
+    <div class="card anim-3" style="padding:0;overflow:hidden">
+      <div class="table-wrap" style="border:none;border-radius:0">
+        <table id="main-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Object</th>
+              <th>Zone</th>
+              <th>Track ID</th>
+              <th>Timestamp</th>
+              <th>Movement</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="history-body">
+            <tr><td colspan="7" class="table-empty">Loading detection logs…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// Dark mode
+const darkBtn = document.getElementById('dark-btn');
+let dark = localStorage.getItem('theme') === 'dark';
+function applyTheme() { document.documentElement.setAttribute('data-theme', dark ? 'dark' : ''); darkBtn.textContent = dark ? '☀️' : '🌙'; localStorage.setItem('theme', dark ? 'dark' : 'light'); }
+applyTheme();
+darkBtn.addEventListener('click', () => { dark = !dark; applyTheme(); });
+
+// Sidebar
+const sidebarEl = document.getElementById('sidebar');
+const tBtn = document.getElementById('toggle-btn');
+let collapsed = localStorage.getItem('sidebar') === 'collapsed';
+function applySidebar() { sidebarEl.classList.toggle('collapsed', collapsed); document.body.classList.toggle('sidebar-collapsed', collapsed); tBtn.textContent = collapsed ? '›' : '‹'; localStorage.setItem('sidebar', collapsed ? 'collapsed' : ''); }
+applySidebar();
+tBtn.addEventListener('click', () => { collapsed = !collapsed; applySidebar(); });
+
+setInterval(() => { document.getElementById('sys-time').textContent = new Date().toTimeString().slice(0,8); }, 1000);
+
+let allData = [];
+
+function updateStats(data) {
+  document.getElementById('ls-total').textContent   = data.length;
+  document.getElementById('ls-objects').textContent = new Set(data.map(r=>r.object)).size;
+  document.getElementById('ls-zones').textContent   = new Set(data.filter(r=>r.zone).map(r=>r.zone)).size;
+  document.getElementById('ls-latest').textContent  = data[0]?.object || '—';
+  document.getElementById('log-count-chip').textContent = `${data.length} records`;
+}
+
+function getStatus(r) {
+  if (!r.zone) return '<span class="badge badge-orange">No Zone</span>';
+  if (r.movement && r.movement !== '—') return '<span class="badge badge-blue">Moved</span>';
+  return '<span class="badge badge-green">Located</span>';
+}
+
+function renderTable(data) {
+  if (!data.length) {
+    document.getElementById('history-body').innerHTML = '<tr><td colspan="7" class="table-empty">No records match your filters.</td></tr>';
+    return;
+  }
+  document.getElementById('history-body').innerHTML = data.map((r, i) => `
+    <tr class="row-in" style="animation-delay:${i*15}ms">
+      <td style="color:var(--ink-faint);font-family:var(--font-mono);font-size:11px">${i+1}</td>
+      <td>${r.object||'—'}</td>
+      <td>${r.zone ? `<span class="badge badge-red">${r.zone}</span>` : '<span class="badge badge-grey">—</span>'}</td>
+      <td style="font-family:var(--font-mono);font-size:11px;color:var(--ink-dim)">${r.track_id||'—'}</td>
+      <td style="font-family:var(--font-mono);font-size:11px;color:var(--ink-dim)">${r.timestamp||'—'}</td>
+      <td style="font-size:12px;color:var(--ink-dim);max-width:150px;overflow:hidden;text-overflow:ellipsis">${r.movement||'—'}</td>
+      <td>${getStatus(r)}</td>
+    </tr>`).join('');
+}
+
+function applyFilters() {
+  const fObj  = document.getElementById('f-obj').value.trim().toLowerCase();
+  const fZone = document.getElementById('f-zone').value.trim().toLowerCase();
+  const fDate = document.getElementById('f-date').value;
+  const fMove = document.getElementById('f-move').value;
+
+  const filtered = allData.filter(r => {
+    if (fObj  && !(r.object||'').toLowerCase().includes(fObj))  return false;
+    if (fZone && !(r.zone  ||'').toLowerCase().includes(fZone)) return false;
+    if (fDate && !(r.timestamp||'').startsWith(fDate))           return false;
+    if (fMove === 'has'  && !(r.movement && r.movement !== '—')) return false;
+    if (fMove === 'none' && r.movement && r.movement !== '—')    return false;
+    return true;
+  });
+
+  const hasFilter = fObj || fZone || fDate || fMove;
+  document.getElementById('filter-count').textContent = hasFilter ? `${filtered.length} of ${allData.length} shown` : '';
+  renderTable(filtered);
+}
+
+['f-obj','f-zone','f-date','f-move'].forEach(id => {
+  document.getElementById(id).addEventListener('input', applyFilters);
+});
+
+document.getElementById('clear-f').addEventListener('click', () => {
+  ['f-obj','f-zone','f-date','f-move'].forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('filter-count').textContent = '';
+  applyFilters();
+});
+
+async function loadLogs() {
+  try {
+    const res = await fetch('/api/logs');
+    allData = await res.json();
+    updateStats(allData);
+    applyFilters();
+  } catch(e) {
+    document.getElementById('history-body').innerHTML = '<tr><td colspan="7" class="table-empty">Error loading logs.</td></tr>';
+  }
+}
+
+document.getElementById('refresh-btn').addEventListener('click', loadLogs);
+
+// Export CSV
+document.getElementById('export-btn').addEventListener('click', () => {
+  document.getElementById('export-menu').classList.toggle('hidden');
+});
+
+document.addEventListener('click', e => {
+  if (!document.getElementById('export-btn').contains(e.target) && !document.getElementById('export-menu').contains(e.target)) {
+    document.getElementById('export-menu').classList.add('hidden');
+  }
+});
+
+document.getElementById('export-csv').addEventListener('click', () => {
+  const headers = ['#','Object','Zone','Track ID','Timestamp','Movement'];
+  const rows = allData.map((r,i) => [i+1, r.object||'', r.zone||'', r.track_id||'', r.timestamp||'', (r.movement||'').replace(/,/g,'')]);
+  const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `detection_logs_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  document.getElementById('export-menu').classList.add('hidden');
+});
+
+document.getElementById('export-print').addEventListener('click', () => {
+  window.print();
+  document.getElementById('export-menu').classList.add('hidden');
+});
+
+loadLogs();
+setInterval(loadLogs, 6000);
+
+// Mobile sidebar
+function openSidebar() {
+  document.getElementById('sidebar').classList.add('mobile-open');
+  document.getElementById('overlay').classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('mobile-open');
+  document.getElementById('overlay').classList.remove('show');
+  document.body.style.overflow = '';
+}
+</script>
+</body>
+</html>

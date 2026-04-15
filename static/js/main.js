@@ -1,129 +1,67 @@
-document.addEventListener('DOMContentLoaded', () => {
-    const activityLog = document.getElementById('activityLog');
-    const searchInput = document.getElementById('objectSearch');
-    const searchResults = document.getElementById('searchResults');
-    const startVoiceBtn = document.getElementById('startVoice');
+// ============================================================
+//  INDOOR OBJECT FINDER — main.js  (voice utility)
+// ============================================================
 
-    // Fetch latest logs every 2 seconds
-    function fetchLogs() {
-        fetch('/api/logs')
-            .then(response => response.json())
-            .then(data => {
-                activityLog.innerHTML = '';
-                data.forEach(log => {
-                    const item = document.createElement('div');
-                    item.className = 'log-item';
-                    item.innerHTML = `
-                        <div class="info">
-                            <div class="name">${log.object_name} (ID: ${log.object_id})</div>
-                            <div class="zone"><i class="fas fa-location-dot"></i> ${log.zone}</div>
-                        </div>
-                        <div class="time">${log.timestamp.split(' ')[1]}</div>
-                    `;
-                    activityLog.appendChild(item);
-                });
-            });
+function speakMessage(text) {
+  if (!('speechSynthesis' in window)) return;
+  const u = new SpeechSynthesisUtterance(text);
+  const voices = window.speechSynthesis.getVoices();
+  const preferred = voices.find(v => /female|zira|susan|aria|samantha|google us english/i.test(v.name))
+    || voices.find(v => /english/i.test(v.name)) || voices[0];
+  if (preferred) u.voice = preferred;
+  u.rate = 1; u.pitch = 1.1; u.volume = 1;
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(u);
+}
+
+window.speakMessage = speakMessage;
+
+if ('speechSynthesis' in window) {
+  window.speechSynthesis.getVoices();
+  window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+}
+
+// Voice button (search.html uses this)
+const voiceBtn = document.getElementById('voice-btn');
+if (voiceBtn) {
+  voiceBtn.addEventListener('click', () => {
+    if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+      alert('Voice input not supported. Please use Chrome.'); return;
     }
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const rec = new SR();
+    rec.lang = 'en-US'; rec.interimResults = false; rec.maxAlternatives = 1;
+    const orig = voiceBtn.innerHTML;
+    voiceBtn.innerHTML = '🔴 Listening…';
+    voiceBtn.classList.add('is-listening');
+    voiceBtn.disabled = true;
+    rec.start();
 
-    setInterval(fetchLogs, 2000);
-    fetchLogs();
-
-    // Search functionality
-    searchInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            const query = searchInput.value.trim();
-            if (query) {
-                searchObject(query);
-            }
+    rec.onresult = async (event) => {
+      const text = event.results[0][0].transcript;
+      const input = document.getElementById('search-input');
+      if (input) input.value = text;
+      try {
+        const res  = await fetch('/voice_search', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text}) });
+        const data = await res.json();
+        if (window.showRichResult) {
+          const logsRes = await fetch('/api/logs');
+          const logs = await logsRes.json();
+          window.showRichResult(data.message || 'Done.', text, logs);
+          window._filterData = logs;
+          if (window.renderFiltered) window.renderFiltered();
         }
-    });
+        speakMessage(data.message || '');
+      } catch(e) {} finally { reset(); }
+    };
 
-    const voiceToggle = document.getElementById('voiceAssistantToggle');
-    let voiceEnabled = localStorage.getItem('voiceEnabled') === 'true';
-    voiceToggle.checked = voiceEnabled;
+    rec.onerror = () => { reset(); };
+    rec.onend   = reset;
 
-    voiceToggle.addEventListener('change', () => {
-        voiceEnabled = voiceToggle.checked;
-        localStorage.setItem('voiceEnabled', voiceEnabled);
-        if (voiceEnabled) {
-            speak("Voice assistant enabled");
-        }
-    });
-
-    function speak(text) {
-        if (!voiceEnabled && !text.includes("enabled")) return;
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 1.0;
-        utterance.pitch = 1.0;
-        window.speechSynthesis.speak(utterance);
+    function reset() {
+      voiceBtn.innerHTML = orig;
+      voiceBtn.classList.remove('is-listening');
+      voiceBtn.disabled = false;
     }
-
-    function searchObject(query) {
-        // Extract object name if it's a full sentence (e.g. "where is the bottle")
-        let name = query.toLowerCase();
-        const keywords = ["bottle", "phone", "cell phone", "person", "chair", "bed", "remote", "laptop"];
-
-        // Simple extraction logic
-        for (const word of keywords) {
-            if (name.includes(word)) {
-                name = word;
-                break;
-            }
-        }
-
-        searchResults.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Searching...';
-        fetch(`/api/search?name=${name}`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.found) {
-                    const responseMsg = `${name} was ${data.message}`;
-                    searchResults.innerHTML = `<span style="color: #7c4dff;"><i class="fas fa-check-circle"></i> ${data.message}</span>`;
-                    if (voiceEnabled) speak(responseMsg);
-                } else {
-                    searchResults.innerHTML = `<span style="color: #ff5252;"><i class="fas fa-times-circle"></i> ${data.message}</span>`;
-                    if (voiceEnabled) speak(`I couldn't find the ${name} in the recent logs.`);
-                }
-            })
-            .catch(err => {
-                searchResults.innerHTML = `<span style="color: #ff5252;">Error searching for object</span>`;
-            });
-    }
-
-    // Voice Input Implementation
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-    if (SpeechRecognition) {
-        const recognition = new SpeechRecognition();
-        recognition.continuous = false;
-        recognition.lang = 'en-US';
-        recognition.interimResults = false;
-
-        recognition.onstart = () => {
-            searchResults.innerHTML = '<span class="voice-status">LISTENING...</span>';
-            startVoiceBtn.classList.add('listening-pulse');
-        };
-
-        recognition.onspeechend = () => {
-            recognition.stop();
-            startVoiceBtn.classList.remove('listening-pulse');
-        };
-
-        recognition.onresult = (event) => {
-            const transcript = event.results[0][0].transcript;
-            searchInput.value = transcript;
-            searchObject(transcript);
-        };
-
-        recognition.onerror = (event) => {
-            searchResults.innerHTML = `<span style="color: #ff5252;">Voice Error: ${event.error}</span>`;
-            startVoiceBtn.classList.remove('listening-pulse');
-        };
-
-        startVoiceBtn.addEventListener('click', () => {
-            recognition.start();
-        });
-    } else {
-        startVoiceBtn.style.display = 'none';
-        console.log("Speech recognition not supported in this browser.");
-    }
-});
+  });
+}

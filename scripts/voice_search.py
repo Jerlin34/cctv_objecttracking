@@ -1,47 +1,53 @@
-import sqlite3
+﻿import sqlite3
 import os
 import pyttsx3
+import speech_recognition as sr
+from scripts.jarvis_ai import jarvis_reply
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DB_PATH = os.path.join(BASE_DIR, "database", "object_history.db")
+DB_PATH  = os.path.join(BASE_DIR, "database", "object_history.db")
+
 
 def speak(text):
-    print(text)
-    engine = pyttsx3.init()
-    engine.say(text)
-    engine.runAndWait()
+    try:
+        engine = pyttsx3.init()
+        engine.setProperty("rate", 160)
+        engine.say(text)
+        engine.runAndWait()
+    except Exception as e:
+        print("TTS Error:", e)
 
-conn = sqlite3.connect(DB_PATH)
-cursor = conn.cursor()
 
-print("--- CCTV Voice Assistant CLI ---")
-query = input("Ask about an object (e.g., 'where is the bottle'): ").lower()
+def listen_for_query():
+    r = sr.Recognizer()
 
-# Basic object name extraction for CLI
-keywords = ["bottle", "phone", "cell phone", "person", "chair", "bed"]
-obj_name = "unknown"
-for k in keywords:
-    if k in query:
-        obj_name = k
-        break
+    try:
+        with sr.Microphone() as source:
+            print("🎤 Listening...")
+            r.adjust_for_ambient_noise(source, duration=1)
+            audio = r.listen(source, timeout=5)
 
-if obj_name == "unknown":
-    speak("I'm sorry, I don't know that object.")
-else:
-    cursor.execute("""
-    SELECT zone, timestamp
-    FROM object_history
-    WHERE object_name LIKE ?
-    ORDER BY id DESC
-    LIMIT 1
-    """, (f"%{obj_name}%",))
+        text = r.recognize_google(audio)
+        print("User:", text)
+        return text.lower()
 
-    result = cursor.fetchone()
+    except Exception as e:
+        print("Voice error:", e)
+        return ""
 
-    if result:
-        zone, time = result
-        speak(f"The {obj_name} was last seen in the {zone} at {time}.")
-    else:
-        speak(f"I couldn't find any records for {obj_name}.")
 
-conn.close()
+def voice_search_flow():
+    speak("Yes, how can I help you?")
+
+    query = listen_for_query()
+
+    if not query:
+        speak("I didn't hear anything")
+        return {"error": "No voice"}
+
+    response = jarvis_reply(query)
+
+    print("Jarvis:", response)
+    speak(response)
+
+    return {"response": response}

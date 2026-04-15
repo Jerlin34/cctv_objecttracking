@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Live Feed — Indoor Object Finder</title>
+  <link rel="stylesheet" href="/static/css/style.css"/>
+</head>
+<body>
+<div class="sidebar-overlay" id="overlay" onclick="closeSidebar()"></div>
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-mark">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    </div>
+    <div class="brand-text">
+      <div class="brand-name">Indoor<em>Finder</em></div>
+      <div class="brand-tagline">AI Object Tracking</div>
+    </div>
+    <button class="sidebar-toggle" id="toggle-btn">‹</button>
+  </div>
+  <nav class="nav-section">
+    <div class="nav-group-label">Main</div>
+    <a href="/" class="nav-link" data-tip="Dashboard"><span class="nav-icon">🏠</span><span class="nav-link-text">Dashboard</span></a>
+    <a href="/feed" class="nav-link active" data-tip="Live Feed"><span class="nav-icon">📷</span><span class="nav-link-text">Live Feed</span></a>
+    <a href="/find" class="nav-link" data-tip="Search"><span class="nav-icon">🔍</span><span class="nav-link-text">Search Object</span></a>
+    <a href="/logs" class="nav-link" data-tip="Logs"><span class="nav-icon">📋</span><span class="nav-link-text">Detection Logs</span></a>
+  </nav>
+  <div class="sidebar-footer"><div class="live-badge"><span class="live-dot"></span><span class="live-badge-text">System Online</span></div></div>
+</aside>
+
+<div class="page">
+  <header class="topbar">
+    <div style="display:flex;align-items:center;gap:12px">
+      <button class="hamburger" onclick="openSidebar()"><span></span><span></span><span></span></button>
+      <div class="topbar-left">
+      <h1>Live Feed</h1>
+      <p>Real-time camera stream with AI object detection</p>
+    </div>
+    </div>
+    <div class="topbar-right">
+      <span class="chip">● CAM_01 LIVE</span>
+      <span class="time-chip" id="sys-time">--:--:--</span>
+      <a href="/logout" class="btn btn-ghost btn-sm" style="font-size:12px">Logout</a>
+      <button class="dark-toggle" id="dark-btn">🌙</button>
+    </div>
+  </header>
+
+  <main class="content">
+
+    <div class="grid-2 anim-1" style="grid-template-columns:2fr 1fr;gap:20px;margin-bottom:20px;align-items:start">
+
+      <!-- FEED -->
+      <div class="card" style="padding:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div style="font-size:14px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:8px">
+            <div style="width:3px;height:15px;background:var(--red);border-radius:2px"></div>
+            Camera 01 — Main Room
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span class="badge badge-red" style="animation:alertBlink 1.5s ease infinite">● RECORDING</span>
+            <span style="font-family:var(--font-mono);font-size:12px;color:var(--ink-dim)" id="feed-time">--:--:--</span>
+          </div>
+        </div>
+        <div class="feed-wrap">
+          <img src="/video_feed" alt="Live CCTV Feed" id="live-feed"/>
+          <div class="feed-hud">
+            <div class="feed-rec"><span class="feed-rec-dot"></span> REC</div>
+            <div class="feed-meta">
+              <span>CAM_01</span>
+              <span>640×480</span>
+              <span>MJPEG</span>
+              <span id="uptime-disp">UPTIME: 00:00</span>
+            </div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px">
+          <div style="background:var(--surface);border-radius:var(--radius-sm);padding:10px;text-align:center">
+            <div style="font-size:10px;color:var(--ink-dim);font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px">Resolution</div>
+            <div style="font-family:var(--font-mono);font-size:13px;font-weight:700;color:var(--ink)">640×480</div>
+          </div>
+          <div style="background:var(--surface);border-radius:var(--radius-sm);padding:10px;text-align:center">
+            <div style="font-size:10px;color:var(--ink-dim);font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px">Codec</div>
+            <div style="font-family:var(--font-mono);font-size:13px;font-weight:700;color:var(--ink)">MJPEG</div>
+          </div>
+          <div style="background:var(--surface);border-radius:var(--radius-sm);padding:10px;text-align:center">
+            <div style="font-size:10px;color:var(--ink-dim);font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px">Latency</div>
+            <div style="font-family:var(--font-mono);font-size:13px;font-weight:700;color:var(--green)">&lt;200ms</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SIDE PANEL -->
+      <div style="display:flex;flex-direction:column;gap:14px">
+
+        <!-- Live stats -->
+        <div class="stat-card red">
+          <div class="stat-card-top"><div class="stat-icon red">📦</div><span class="stat-trend-badge up">Live</span></div>
+          <div class="stat-val" id="f-total">—</div>
+          <div class="stat-key">Total Detections</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-card-top"><div class="stat-icon green">🎯</div></div>
+          <div class="stat-val" id="f-latest" style="font-size:18px;margin-top:4px">—</div>
+          <div class="stat-key">Latest Object</div>
+          <div class="stat-sub" id="f-latest-zone">—</div>
+        </div>
+        <div class="stat-card blue">
+          <div class="stat-card-top"><div class="stat-icon blue">📍</div></div>
+          <div class="stat-val" id="f-zones">—</div>
+          <div class="stat-key">Zones Active</div>
+        </div>
+        <div class="stat-card orange">
+          <div class="stat-card-top"><div class="stat-icon orange">🏷️</div></div>
+          <div class="stat-val" id="f-objects">—</div>
+          <div class="stat-key">Unique Objects</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- RECENT DETECTIONS -->
+    <div class="card anim-2">
+      <div class="card-head">
+        <span class="card-title">Recent Detections</span>
+        <a href="/logs" class="btn btn-ghost btn-sm">View All Logs</a>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Object</th><th>Zone</th><th>Track ID</th><th>Time</th><th>Movement</th></tr></thead>
+          <tbody id="feed-logs">
+            <tr><td colspan="5" class="table-empty">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+const darkBtn = document.getElementById('dark-btn');
+let dark = localStorage.getItem('theme') === 'dark';
+function applyTheme() { document.documentElement.setAttribute('data-theme', dark ? 'dark' : ''); darkBtn.textContent = dark ? '☀️' : '🌙'; localStorage.setItem('theme', dark ? 'dark' : 'light'); }
+applyTheme();
+darkBtn.addEventListener('click', () => { dark = !dark; applyTheme(); });
+
+const sidebarEl = document.getElementById('sidebar');
+const tBtn = document.getElementById('toggle-btn');
+let collapsed = localStorage.getItem('sidebar') === 'collapsed';
+function applySidebar() { sidebarEl.classList.toggle('collapsed', collapsed); document.body.classList.toggle('sidebar-collapsed', collapsed); tBtn.textContent = collapsed ? '›' : '‹'; localStorage.setItem('sidebar', collapsed ? 'collapsed' : ''); }
+applySidebar();
+tBtn.addEventListener('click', () => { collapsed = !collapsed; applySidebar(); });
+
+setInterval(() => {
+  const t = new Date().toTimeString().slice(0,8);
+  document.getElementById('sys-time').textContent  = t;
+  document.getElementById('feed-time').textContent = t;
+}, 1000);
+
+let uptimeSec = 0;
+setInterval(() => {
+  uptimeSec++;
+  const m = String(Math.floor(uptimeSec/60)).padStart(2,'0');
+  const s = String(uptimeSec%60).padStart(2,'0');
+  document.getElementById('uptime-disp').textContent = `UPTIME: ${m}:${s}`;
+}, 1000);
+
+async function loadStats() {
+  try {
+    const res  = await fetch('/api/logs');
+    const data = await res.json();
+    document.getElementById('f-total').textContent   = data.length || '0';
+    document.getElementById('f-latest').textContent  = data[0]?.object || '—';
+    document.getElementById('f-latest-zone').textContent = data[0]?.zone ? `Zone: ${data[0].zone}` : 'Zone unknown';
+    document.getElementById('f-zones').textContent   = new Set(data.filter(r=>r.zone).map(r=>r.zone)).size || '0';
+    document.getElementById('f-objects').textContent = new Set(data.map(r=>r.object)).size || '0';
+
+    document.getElementById('feed-logs').innerHTML = data.slice(0,10).map((r,i) => `
+      <tr class="row-in" style="animation-delay:${i*25}ms">
+        <td>${r.object||'—'}</td>
+        <td>${r.zone ? `<span class="badge badge-red">${r.zone}</span>` : '<span class="badge badge-grey">—</span>'}</td>
+        <td style="font-family:var(--font-mono);font-size:11px;color:var(--ink-dim)">${r.track_id||'—'}</td>
+        <td style="font-family:var(--font-mono);font-size:11px;color:var(--ink-dim)">${r.timestamp||'—'}</td>
+        <td style="font-size:12px;color:var(--ink-dim)">${r.movement||'—'}</td>
+      </tr>`).join('') || '<tr><td colspan="5" class="table-empty">No detections yet</td></tr>';
+  } catch(e) {}
+}
+loadStats();
+setInterval(loadStats, 4000);
+
+// Mobile sidebar
+function openSidebar() {
+  document.getElementById('sidebar').classList.add('mobile-open');
+  document.getElementById('overlay').classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('mobile-open');
+  document.getElementById('overlay').classList.remove('show');
+  document.body.style.overflow = '';
+}
+</script>
+</body>
+</html>
