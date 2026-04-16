@@ -14,10 +14,11 @@ custom_model = YOLO(os.path.join(BASE_DIR, "scripts", "best.pt"))
 coco_model   = YOLO("yolov8n.pt")
 
 # ================= CAMERA =================
-#VIDEO_SOURCE = "http://192.168.0.146:8080/video"
-VIDEO_SOURCE = 0
+#VIDEO_SOURCE = 0
+VIDEO_SOURCE = "http://192.168.0.146:8080/video"
 
-COOLDOWN_SEC = 5
+
+COOLDOWN_SEC = 1.5
 
 # ================= OBJECT FILTER =================
 ALLOWED_OBJECTS = [
@@ -25,32 +26,48 @@ ALLOWED_OBJECTS = [
     "bottle", "book", "earphone", "glasses-sunglasses"
 ]
 
-# ──────────────────────────────────────────────────────────
-# Q4 FIX: Minimum object size in pixels
-# Objects smaller than this are false positives (eyes, noise)
-# A real glasses/remote is at least 40x20px in frame
-# ──────────────────────────────────────────────────────────
-MIN_OBJECT_WIDTH  = 35   # pixels
-MIN_OBJECT_HEIGHT = 20   # pixels
+MIN_SIZES = {
+    "glasses-sunglasses": (30, 15),
+    "remote-control":     (28, 18),
+    "keys":               (20, 10),
+    "wallet":             (30, 15),
+    "bottle":             (15, 40),
+    "book":               (30, 25),
+    "earphone":           (15, 15),
+}
 
 # ================= FURNITURE CLASSES =================
 FURNITURE_CLASSES = {
-    "chair", "bed", "dining table", "couch",
-    "sofa", "desk", "table", "bench", "tv", "laptop"
+    "chair", "bed", "dining table", "laptop"
 }
 
 # Q2 FIX: Real human-readable zone names — no "Zone A/B/C/D" nonsense
 ZONE_LABELS = {
-    "dining table": "dining table",
+    "dining table": "table/desk",
     "chair":        "chair",
     "bed":          "bed",
-    "couch":        "sofa",
-    "sofa":         "sofa",
-    "desk":         "desk",
-    "table":        "table",
-    "bench":        "bench",
-    "tv":           "TV stand",
     "laptop":       "laptop",
+}
+
+COCO_IGNORE_CLASSES = {
+    "bench", "tv", "cell phone", "remote", "mouse",
+    "keyboard", "book", "bottle", "cup", "clock", "vase",
+    "scissors", "toothbrush", "hair drier", "tie", "backpack",
+    "handbag", "suitcase",
+}
+
+FURNITURE_MIN_CONF = {
+    "chair": 0.10,
+    "dining table": 0.14,
+    "bed": 0.38,
+    "laptop": 0.35,
+}
+
+FURNITURE_MAX_AREA_RATIO = {
+    "chair": 0.70,
+    "dining table": 0.92,
+    "bed": 0.75,
+    "laptop": 0.95,
 }
 
 # ================= DATABASE =================
@@ -85,10 +102,11 @@ def log_object(obj, zone, track_id, movement):
 track_memory        = {}
 movement_history    = {}
 last_known_location = {}
+track_class_scores  = {}
 next_id             = 0
 furniture_cache     = []
 furniture_cache_ttl = 0
-FURNITURE_CACHE_MAX = 20
+FURNITURE_CACHE_MAX = 60
 
 def get_track_id(cx, cy):
     global next_id
@@ -129,33 +147,39 @@ def get_location(obj_box, furniture_boxes):
     ocx = (ox1 + ox2) // 2
     ocy = (oy1 + oy2) // 2
 
+    # Smaller furniture boxes first so giant boxes don't dominate.
+    furniture_sorted = sorted(
+        furniture_boxes,
+        key=lambda item: (item[1][2] - item[1][0]) * (item[1][3] - item[1][1])
+    )
+
     # Strategy 1: lower 60% of object center is INSIDE furniture box
     obj_check_y = oy1 + (oy2 - oy1) * 0.6
-    for fname, (fx1, fy1, fx2, fy2) in furniture_boxes:
+    for fname, (fx1, fy1, fx2, fy2) in furniture_sorted:
         if fx1 <= ocx <= fx2 and fy1 <= obj_check_y <= fy2:
             return ZONE_LABELS.get(fname, fname)
 
     # Strategy 2: overlap area ratio >= 2%
-    best_zone, best_overlap = None, 0.0
-    for fname, (fx1, fy1, fx2, fy2) in furniture_boxes:
+    best_zone, best_ratio = None, 0.0
+    for fname, (fx1, fy1, fx2, fy2) in furniture_sorted:
         iw = max(0, min(ox2, fx2) - max(ox1, fx1))
         ih = max(0, min(oy2, fy2) - max(oy1, fy1))
         ia = iw * ih
         obj_area = max((ox2 - ox1) * (oy2 - oy1), 1)
         ratio = ia / obj_area
-        if ratio >= 0.02 and ia > best_overlap:
-            best_overlap = ia
+        if ratio > best_ratio:
+            best_ratio = ratio
             best_zone = ZONE_LABELS.get(fname, fname)
-    if best_zone:
+    if best_zone and best_ratio >= 0.18:
         return best_zone
 
-    # Strategy 3: nearest furniture within 350px
+    # Strategy 3: nearest furniture (no hard distance cap)
     nearest_zone, min_dist = None, float("inf")
-    for fname, (fx1, fy1, fx2, fy2) in furniture_boxes:
+    for fname, (fx1, fy1, fx2, fy2) in furniture_sorted:
         fcx = (fx1 + fx2) // 2
         fcy = (fy1 + fy2) // 2
         d = ((ocx - fcx) ** 2 + (ocy - fcy) ** 2) ** 0.5
-        if d < 350 and d < min_dist:
+        if d < min_dist:
             min_dist     = d
             nearest_zone = ZONE_LABELS.get(fname, fname)
     if nearest_zone:
@@ -173,6 +197,33 @@ def check_alert(obj, zone):
     if "glasses" in obj and "chair" in zone:
         print(f"👓  ALERT: Glasses on {zone} — careful!")
 
+
+def normalize_object_label(cls, conf, x1, y1, x2, y2):
+    w = x2 - x1
+    h = y2 - y1
+    area = w * h
+
+    # Custom model often flips keys <-> remote-control.
+    # On keyboard/laptop scenes, tiny "remote-control" is usually keys.
+    aspect = w / max(h, 1)
+    if cls == "remote-control" and conf < 0.80 and w < 95 and h < 42 and area < 3200 and aspect < 2.8:
+        return "keys"
+    return cls
+
+
+def stabilize_class(track_id, cls, conf):
+    """
+    Temporal smoothing: avoid class flicker (keys <-> remote-control)
+    for the same tracked object across adjacent frames.
+    """
+    scores = track_class_scores.setdefault(track_id, {})
+    for k in list(scores.keys()):
+        scores[k] *= 0.85
+        if scores[k] < 0.05:
+            del scores[k]
+    scores[cls] = scores.get(cls, 0.0) + conf
+    return max(scores, key=scores.get)
+
 # ================= DRAW =================
 def draw_box(frame, x1, y1, x2, y2, label, color, conf=None):
     cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
@@ -188,61 +239,80 @@ def process_frame(frame, last_logged):
     frame_h, frame_w = frame.shape[:2]
 
     # ── Step 1: Detect furniture ────────────────────────────────
-    results_coco = coco_model(frame, conf=0.15, verbose=False)
+    results_coco = coco_model(frame, conf=0.12, verbose=False)
     current_furniture = []
     for r in results_coco:
         for box in r.boxes:
             cls = coco_model.names[int(box.cls[0])]
-            if cls in FURNITURE_CLASSES:
-                x1, y1, x2, y2 = map(int, box.xyxy[0])
-                pad = 15
-                x1, y1 = max(0, x1-pad), max(0, y1-pad)
-                x2, y2 = min(frame_w, x2+pad), min(frame_h, y2+pad)
-                current_furniture.append((cls, (x1, y1, x2, y2)))
-                draw_box(frame, x1, y1, x2, y2, cls, (200, 130, 0))
+            if cls in COCO_IGNORE_CLASSES or cls not in FURNITURE_CLASSES:
+                continue
+            conf = float(box.conf[0])
+            x1, y1, x2, y2 = map(int, box.xyxy[0])
+            w = max(1, x2 - x1)
+            h = max(1, y2 - y1)
+            area_ratio = (w * h) / max(1, frame_w * frame_h)
+            if conf < FURNITURE_MIN_CONF.get(cls, 0.14):
+                continue
+            if area_ratio > FURNITURE_MAX_AREA_RATIO.get(cls, 0.92):
+                continue
+            if cls == "laptop":
+                aspect = w / max(h, 1)
+                if area_ratio < 0.08 or aspect < 1.1:
+                    continue
+
+            pad = 24
+            x1, y1 = max(0, x1 - pad), max(0, y1 - pad)
+            x2, y2 = min(frame_w, x2 + pad), min(frame_h, y2 + pad)
+            current_furniture.append((cls, (x1, y1, x2, y2)))
+            draw_box(frame, x1, y1, x2, y2, ZONE_LABELS.get(cls, cls), (200, 130, 0))
 
     if current_furniture:
         furniture_cache     = current_furniture
         furniture_cache_ttl = FURNITURE_CACHE_MAX
+        print(f"[Furniture] {[f[0] for f in current_furniture]}")
     elif furniture_cache_ttl > 0:
         furniture_cache_ttl -= 1
         current_furniture    = furniture_cache
+        print(f"[Furniture] cache TTL={furniture_cache_ttl}")
     else:
-        furniture_cache = []
+        current_furniture = []
+        print("[Furniture] no memory yet")
 
     # ── Step 2: Detect objects ──────────────────────────────────
-    # Q4 FIX: Raised confidence to 0.60 — stops detecting eyes/faces as glasses
-    results_custom = custom_model(frame, conf=0.60, verbose=False)
+    results_custom = custom_model(frame, conf=0.55, verbose=False)
 
     detections = []
     for r in results_custom:
         for box in r.boxes:
             cls  = custom_model.names[int(box.cls[0])]
             conf = float(box.conf[0])
-            if cls not in ALLOWED_OBJECTS:
-                continue
             x1, y1, x2, y2 = map(int, box.xyxy[0])
-
-            # Q4 FIX: Skip tiny detections — real objects are bigger than this
-            obj_w = x2 - x1
-            obj_h = y2 - y1
-            if obj_w < MIN_OBJECT_WIDTH or obj_h < MIN_OBJECT_HEIGHT:
-                print(f"⏭️  Skipped tiny detection: {cls} ({obj_w}×{obj_h}px) — likely false positive")
-                continue
-
             detections.append((cls, conf, x1, y1, x2, y2))
 
     # ── Step 3: Locate and log ──────────────────────────────────
     for cls, conf, x1, y1, x2, y2 in detections:
         cx, cy   = (x1 + x2) // 2, (y1 + y2) // 2
         track_id = get_track_id(cx, cy)
+        cls = normalize_object_label(cls, conf, x1, y1, x2, y2)
+        cls = stabilize_class(track_id, cls, conf)
+        if cls not in ALLOWED_OBJECTS:
+            continue
+
+        obj_w = x2 - x1
+        obj_h = y2 - y1
+        min_w, min_h = MIN_SIZES.get(cls, (25, 15))
+        if obj_w < min_w or obj_h < min_h:
+            print(f"⏭️  Skipped tiny detection: {cls} ({obj_w}x{obj_h}px)")
+            continue
+
         location = get_location((x1, y1, x2, y2), current_furniture)
 
         # Keep last known real furniture zone
         if location != "unknown":
             last_known_location[track_id] = location
         else:
-            location = last_known_location.get(track_id, "unknown")
+            if track_id in last_known_location:
+                location = last_known_location[track_id]
 
         movement = update_movement(track_id, location)
 
