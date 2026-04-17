@@ -24,6 +24,9 @@ USERS = {
 }
 
 MISSING_THRESHOLD_MINUTES = 10   # object missing alert after 10 min
+DEMO_MODE = True
+DEMO_LOG_OBJECTS = ("keys", "remote-control", "wallet", "bottle", "earphone")
+DEMO_LOG_ZONES = ("chair", "table/desk", "laptop", "bed")
 
 
 # ═══════════════════════════════════════════════
@@ -227,10 +230,22 @@ def video_feed():
 @login_required
 def get_logs():
     conn = sqlite3.connect(DB_PATH)
-    rows = conn.execute(
-        "SELECT object, zone, track_id, timestamp, movement "
-        "FROM object_history ORDER BY id DESC LIMIT 100"
-    ).fetchall()
+    if DEMO_MODE:
+        obj_placeholders = ",".join("?" * len(DEMO_LOG_OBJECTS))
+        zone_placeholders = ",".join("?" * len(DEMO_LOG_ZONES))
+        rows = conn.execute(
+            f"SELECT object, zone, track_id, timestamp, movement "
+            f"FROM object_history "
+            f"WHERE object IN ({obj_placeholders}) "
+            f"AND (zone IN ({zone_placeholders}) OR zone = 'unknown' OR zone IS NULL) "
+            f"ORDER BY id DESC LIMIT 100",
+            DEMO_LOG_OBJECTS + DEMO_LOG_ZONES
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT object, zone, track_id, timestamp, movement "
+            "FROM object_history ORDER BY id DESC LIMIT 100"
+        ).fetchall()
     conn.close()
     return jsonify([{
         "object": clean_name(r[0]), "zone": r[1],

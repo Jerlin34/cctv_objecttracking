@@ -1,0 +1,5 @@
+image_id,pred_class,pred_zone,score,x1,y1,x2,y2,time_sec,latency_ms,fps
+img_001,keys,table/desk,0.87,412,214,468,279,1.35,42,23.8
+img_001,bottle,laptop,0.81,118,146,252,425,1.33,42,23.8
+img_002,earphone,laptop,0.63,298,183,516,358,2.72,46,21.7
+img_003,wallet,chair,0.79,224,242,358,332,3.94,44,22.6

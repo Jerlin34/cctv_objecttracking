@@ -1,0 +1,17 @@
+path: C:/Users/abirami/cctv_objecttracking/datasets/unified
+train: images/train
+val: images/val
+test: images/test
+
+names:
+  0: keys
+  1: remote-control
+  2: wallet
+  3: bottle
+  4: book
+  5: earphone
+  6: glasses-sunglasses
+  7: chair
+  8: table-desk
+  9: laptop
+  10: bed

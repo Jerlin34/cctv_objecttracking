@@ -15,10 +15,13 @@ coco_model   = YOLO("yolov8n.pt")
 
 # ================= CAMERA =================
 #VIDEO_SOURCE = 0
+#VIDEO_SOURCE = "http://192.168.230.110:8080/video"
 VIDEO_SOURCE = "http://192.168.0.146:8080/video"
 
 
+
 COOLDOWN_SEC = 1.5
+DEMO_MODE = True
 
 # ================= OBJECT FILTER =================
 ALLOWED_OBJECTS = [
@@ -26,14 +29,43 @@ ALLOWED_OBJECTS = [
     "bottle", "book", "earphone", "glasses-sunglasses"
 ]
 
+# Keep demo output stable by focusing on the most reliable classes.
+DEMO_ALLOWED_OBJECTS = {
+    "keys",
+    "remote-control",
+    "wallet",
+    "bottle",
+    "earphone",
+}
+
+# Class-wise confidence tuning:
+# lower for hard tiny objects (keys), higher for noisy classes (glasses/remote).
+CUSTOM_MIN_CONF = {
+    "keys": 0.32,
+    "wallet": 0.18,
+    "earphone": 0.08,
+    "glasses-sunglasses": 0.65,
+    "remote-control": 0.45,
+}
+
+COCO_OBJECT_MAP = {
+    "bottle": "bottle",
+    "book": "book",
+}
+
+COCO_OBJECT_MIN_CONF = {
+    "bottle": 0.18,
+    "book": 0.30,
+}
+
 MIN_SIZES = {
-    "glasses-sunglasses": (30, 15),
+    "glasses-sunglasses": (40, 20),
     "remote-control":     (28, 18),
     "keys":               (20, 10),
-    "wallet":             (30, 15),
+    "wallet":             (20, 10),
     "bottle":             (15, 40),
     "book":               (30, 25),
-    "earphone":           (15, 15),
+    "earphone":           (8, 8),
 }
 
 # ================= FURNITURE CLASSES =================
@@ -69,6 +101,7 @@ FURNITURE_MAX_AREA_RATIO = {
     "bed": 0.75,
     "laptop": 0.95,
 }
+MAX_ZONE_DISTANCE = 300
 
 # ================= DATABASE =================
 def init_db():
@@ -106,7 +139,7 @@ track_class_scores  = {}
 next_id             = 0
 furniture_cache     = []
 furniture_cache_ttl = 0
-FURNITURE_CACHE_MAX = 60
+FURNITURE_CACHE_MAX = 20
 
 def get_track_id(cx, cy):
     global next_id
@@ -173,7 +206,8 @@ def get_location(obj_box, furniture_boxes):
     if best_zone and best_ratio >= 0.18:
         return best_zone
 
-    # Strategy 3: nearest furniture (no hard distance cap)
+    # Strategy 3: nearest furniture with a distance cap
+    # to avoid assigning a far-away wrong location.
     nearest_zone, min_dist = None, float("inf")
     for fname, (fx1, fy1, fx2, fy2) in furniture_sorted:
         fcx = (fx1 + fx2) // 2
@@ -182,7 +216,7 @@ def get_location(obj_box, furniture_boxes):
         if d < min_dist:
             min_dist     = d
             nearest_zone = ZONE_LABELS.get(fname, fname)
-    if nearest_zone:
+    if nearest_zone and min_dist <= MAX_ZONE_DISTANCE:
         return nearest_zone
 
     # If furniture exists but object is far → unknown
@@ -203,10 +237,15 @@ def normalize_object_label(cls, conf, x1, y1, x2, y2):
     h = y2 - y1
     area = w * h
 
+    # Earphone bundles are sometimes predicted as "keys" in low light.
+    # Promote only large, low-confidence keys-like boxes to earphone.
+    if cls == "keys" and conf < 0.50 and area > 4500 and (w > 120 or h > 120):
+        return "earphone"
+
     # Custom model often flips keys <-> remote-control.
     # On keyboard/laptop scenes, tiny "remote-control" is usually keys.
     aspect = w / max(h, 1)
-    if cls == "remote-control" and conf < 0.80 and w < 95 and h < 42 and area < 3200 and aspect < 2.8:
+    if cls == "remote-control" and conf < 0.70 and w < 70 and h < 30 and area < 1600 and aspect < 2.8:
         return "keys"
     return cls
 
@@ -216,6 +255,11 @@ def stabilize_class(track_id, cls, conf):
     Temporal smoothing: avoid class flicker (keys <-> remote-control)
     for the same tracked object across adjacent frames.
     """
+    # For demo stability, do not smooth between keys and earphone.
+    # Their shapes overlap in cluttered scenes and smoothing can lock the wrong label.
+    if cls in {"keys", "earphone"}:
+        return cls
+
     scores = track_class_scores.setdefault(track_id, {})
     for k in list(scores.keys()):
         scores[k] *= 0.85
@@ -279,15 +323,31 @@ def process_frame(frame, last_logged):
         print("[Furniture] no memory yet")
 
     # ── Step 2: Detect objects ──────────────────────────────────
-    results_custom = custom_model(frame, conf=0.55, verbose=False)
+    # Run a lower global conf, then filter by class thresholds.
+    results_custom = custom_model(frame, conf=0.08, verbose=False)
 
     detections = []
     for r in results_custom:
         for box in r.boxes:
             cls  = custom_model.names[int(box.cls[0])]
             conf = float(box.conf[0])
+            if conf < CUSTOM_MIN_CONF.get(cls, 0.35):
+                continue
             x1, y1, x2, y2 = map(int, box.xyxy[0])
             detections.append((cls, conf, x1, y1, x2, y2))
+
+    # best.pt has no "bottle" class; use COCO for bottle/book objects.
+    for r in results_coco:
+        for box in r.boxes:
+            coco_cls = coco_model.names[int(box.cls[0])]
+            mapped = COCO_OBJECT_MAP.get(coco_cls)
+            if not mapped:
+                continue
+            conf = float(box.conf[0])
+            if conf < COCO_OBJECT_MIN_CONF.get(coco_cls, 0.30):
+                continue
+            x1, y1, x2, y2 = map(int, box.xyxy[0])
+            detections.append((mapped, conf, x1, y1, x2, y2))
 
     # ── Step 3: Locate and log ──────────────────────────────────
     for cls, conf, x1, y1, x2, y2 in detections:
@@ -296,6 +356,8 @@ def process_frame(frame, last_logged):
         cls = normalize_object_label(cls, conf, x1, y1, x2, y2)
         cls = stabilize_class(track_id, cls, conf)
         if cls not in ALLOWED_OBJECTS:
+            continue
+        if DEMO_MODE and cls not in DEMO_ALLOWED_OBJECTS:
             continue
 
         obj_w = x2 - x1
@@ -307,7 +369,7 @@ def process_frame(frame, last_logged):
 
         location = get_location((x1, y1, x2, y2), current_furniture)
 
-        # Keep last known real furniture zone
+        # Keep last known zone only for brief dropouts.
         if location != "unknown":
             last_known_location[track_id] = location
         else:

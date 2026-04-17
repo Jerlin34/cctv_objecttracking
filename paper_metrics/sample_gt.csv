@@ -1,0 +1,5 @@
+image_id,class,zone,x1,y1,x2,y2,time_sec
+img_001,keys,table/desk,410,210,470,280,1.20
+img_001,bottle,laptop,120,140,250,430,1.20
+img_002,earphone,laptop,300,180,520,360,2.50
+img_003,wallet,chair,220,240,360,330,3.80
