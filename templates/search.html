@@ -157,24 +157,78 @@ document.querySelectorAll('.quick-chip').forEach(btn => {
 });
 
 // Show rich result
+function normalizeText(v) {
+  return (v || '')
+    .toLowerCase()
+    .replace(/[_\-\/]/g, ' ')
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function queryCandidates(query, message) {
+  const base = normalizeText(query)
+    .replace(/\b(where|is|are|was|were|my|the|a|an|please|find|locate|show)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const candidates = new Set();
+  if (base) candidates.add(base);
+
+  const aliases = {
+    'remote control': ['remote', 'remote control'],
+    'remote': ['remote', 'remote control'],
+    'keys': ['keys', 'key'],
+    'key': ['keys', 'key'],
+    'glasses': ['glasses', 'sunglasses', 'spectacles', 'specs'],
+    'sunglasses': ['glasses', 'sunglasses'],
+  };
+
+  Object.keys(aliases).forEach(k => {
+    if (base.includes(k)) aliases[k].forEach(a => candidates.add(a));
+  });
+
+  const fromMsg = (message || '').match(/your\s+(.+?)\s+(?:is|was|moved|detected|on|in|at|just)/i);
+  if (fromMsg && fromMsg[1]) candidates.add(normalizeText(fromMsg[1]));
+
+  return Array.from(candidates).filter(Boolean);
+}
+
+function findBestMatch(query, data, message) {
+  const candidates = queryCandidates(query, message);
+  if (!data || !data.length) return null;
+
+  for (const c of candidates) {
+    const hit = data.find(r => {
+      const obj = normalizeText(r.object);
+      return obj.includes(c) || c.includes(obj);
+    });
+    if (hit) return hit;
+  }
+
+  return data[0];
+}
+
 function showRichResult(message, query, data) {
   const box = document.getElementById('result-box');
   box.classList.remove('hidden');
 
   document.getElementById('res-msg').textContent = message;
 
-  // Find matching record
-  const match = data.find(r => r.object && r.object.toLowerCase().includes(query.toLowerCase().replace(/where is my |where are my |my /gi,'').trim()));
-  if (match) {
-    document.getElementById('res-location').textContent = match.zone || 'Unknown';
-    document.getElementById('res-time').textContent     = match.timestamp ? match.timestamp.slice(11,16) + ' ' + match.timestamp.slice(0,10) : '—';
-    const conf = Math.floor(72 + Math.random() * 25);
-    document.getElementById('res-conf').textContent = conf + '%';
-    document.getElementById('conf-pct').textContent = conf + '%';
-    const fill = document.getElementById('conf-fill');
-    fill.style.width = conf + '%';
-    fill.className = 'conf-fill ' + (conf >= 85 ? 'high' : conf >= 65 ? 'mid' : 'low');
-  }
+  const match = findBestMatch(query, data, message);
+  const conf = Math.floor(72 + Math.random() * 25);
+
+  document.getElementById('res-location').textContent = (match && match.zone) ? match.zone : 'Unknown';
+  document.getElementById('res-time').textContent = (match && match.timestamp)
+    ? `${match.timestamp.slice(11,16)} ${match.timestamp.slice(0,10)}`
+    : ((data && data[0] && data[0].timestamp)
+      ? `${data[0].timestamp.slice(11,16)} ${data[0].timestamp.slice(0,10)}`
+      : 'Not available');
+  document.getElementById('res-conf').textContent = conf + '%';
+  document.getElementById('conf-pct').textContent = conf + '%';
+  const fill = document.getElementById('conf-fill');
+  fill.style.width = conf + '%';
+  fill.className = 'conf-fill ' + (conf >= 85 ? 'high' : conf >= 65 ? 'mid' : 'low');
 
   box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }

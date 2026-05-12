@@ -15,30 +15,41 @@ coco_model   = YOLO("yolov8n.pt")
 
 # ================= CAMERA =================
 #VIDEO_SOURCE = 0
-VIDEO_SOURCE = "http://192.168.0.146:8080/video"
+#VIDEO_SOURCE = "http://192.168.0.146:8080/video"
+VIDEO_SOURCE = "http://192.168.0.9:8080/videofeed"
+
+ROTATE_FRAME = True
+ROTATE_CODE  = cv2.ROTATE_90_CLOCKWISE
 
 
 COOLDOWN_SEC = 1.5
+STREAM_RECONNECT_FAILS = 25
+USE_GRID_ZONE_FALLBACK = False
 
 # ================= OBJECT FILTER =================
 ALLOWED_OBJECTS = [
-    "keys", "remote-control", "wallet",
-    "bottle", "book", "earphone", "glasses-sunglasses"
+    "keys", "remote-control", "wallet", "bottle", "glasses-sunglasses", 
 ]
 
 MIN_SIZES = {
-    "glasses-sunglasses": (30, 15),
+    "glasses-sunglasses": (20, 10),
     "remote-control":     (28, 18),
     "keys":               (20, 10),
-    "wallet":             (30, 15),
-    "bottle":             (15, 40),
-    "book":               (30, 25),
-    "earphone":           (15, 15),
+    "wallet":             (18, 10),
+    "bottle":             (10, 24),
+}
+
+CLASS_MIN_CONF = {
+    "keys":               0.22,
+    "remote-control":     0.40,
+    "wallet":             0.20,
+    "bottle":             0.16,
+    "glasses-sunglasses": 0.20,
 }
 
 # ================= FURNITURE CLASSES =================
 FURNITURE_CLASSES = {
-    "chair", "bed", "dining table", "laptop"
+    "chair", "bed", "dining table", "laptop",
 }
 
 # Q2 FIX: Real human-readable zone names — no "Zone A/B/C/D" nonsense
@@ -50,7 +61,7 @@ ZONE_LABELS = {
 }
 
 COCO_IGNORE_CLASSES = {
-    "bench", "tv", "cell phone", "remote", "mouse",
+    "bench", "tv", "remote", "mouse",
     "keyboard", "book", "bottle", "cup", "clock", "vase",
     "scissors", "toothbrush", "hair drier", "tie", "backpack",
     "handbag", "suitcase",
@@ -60,7 +71,7 @@ FURNITURE_MIN_CONF = {
     "chair": 0.10,
     "dining table": 0.14,
     "bed": 0.38,
-    "laptop": 0.35,
+    "laptop": 0.18,
 }
 
 FURNITURE_MAX_AREA_RATIO = {
@@ -108,19 +119,26 @@ furniture_cache     = []
 furniture_cache_ttl = 0
 FURNITURE_CACHE_MAX = 60
 
-def get_track_id(cx, cy):
+def get_track_id(cx, cy, cls=None):
     global next_id
     best_tid, best_dist = None, float("inf")
-    for tid, (px, py) in track_memory.items():
+    now = time.time()
+    for tid, meta in track_memory.items():
+        px, py, pcls, pts = meta
+        if now - pts > 6:
+            continue
+        if cls and pcls and pcls != cls:
+            continue
         d = ((cx - px) ** 2 + (cy - py) ** 2) ** 0.5
-        if d < 90 and d < best_dist:
+        if d < 120 and d < best_dist:
             best_dist = d
             best_tid  = tid
     if best_tid is not None:
-        track_memory[best_tid] = (cx, cy)
+        _, _, prev_cls, _ = track_memory[best_tid]
+        track_memory[best_tid] = (cx, cy, cls or prev_cls, now)
         return best_tid
     next_id += 1
-    track_memory[next_id] = (cx, cy)
+    track_memory[next_id] = (cx, cy, cls, now)
     return next_id
 
 def update_movement(track_id, zone):
@@ -199,6 +217,7 @@ def check_alert(obj, zone):
 
 
 def normalize_object_label(cls, conf, x1, y1, x2, y2):
+    cls = canonicalize_label(cls)
     w = x2 - x1
     h = y2 - y1
     area = w * h
@@ -210,12 +229,35 @@ def normalize_object_label(cls, conf, x1, y1, x2, y2):
         return "keys"
     return cls
 
+def canonicalize_label(label):
+    if not label:
+        return ""
+    raw = str(label).strip().lower().replace("_", "-")
+    aliases = {
+        "remote": "remote-control",
+        "remote control": "remote-control",
+        "key": "keys",
+        "keys": "keys",
+        "glasses": "glasses-sunglasses",
+        "sunglasses": "glasses-sunglasses",
+        "sunglass": "glasses-sunglasses",
+        "spectacles": "glasses-sunglasses",
+        "specs": "glasses-sunglasses",
+        "glass": "glasses-sunglasses",
+        "wallet": "wallet",
+        "bottle": "bottle",
+    }
+    return aliases.get(raw, raw)
+
 
 def stabilize_class(track_id, cls, conf):
     """
     Temporal smoothing: avoid class flicker (keys <-> remote-control)
     for the same tracked object across adjacent frames.
     """
+    # Only smooth the ambiguous pair; avoid forcing all classes into "remote-control".
+    if cls not in {"keys", "remote-control"}:
+        return cls
     scores = track_class_scores.setdefault(track_id, {})
     for k in list(scores.keys()):
         scores[k] *= 0.85
@@ -239,7 +281,7 @@ def process_frame(frame, last_logged):
     frame_h, frame_w = frame.shape[:2]
 
     # ── Step 1: Detect furniture ────────────────────────────────
-    results_coco = coco_model(frame, conf=0.12, verbose=False)
+    results_coco = coco_model(frame, conf=0.08, imgsz=640, verbose=False)
     current_furniture = []
     for r in results_coco:
         for box in r.boxes:
@@ -257,7 +299,7 @@ def process_frame(frame, last_logged):
                 continue
             if cls == "laptop":
                 aspect = w / max(h, 1)
-                if area_ratio < 0.08 or aspect < 1.1:
+                if area_ratio < 0.02 or aspect < 0.8:
                     continue
 
             pad = 24
@@ -279,12 +321,12 @@ def process_frame(frame, last_logged):
         print("[Furniture] no memory yet")
 
     # ── Step 2: Detect objects ──────────────────────────────────
-    results_custom = custom_model(frame, conf=0.55, verbose=False)
+    results_custom = custom_model(frame, conf=0.18, imgsz=640, verbose=False)
 
     detections = []
     for r in results_custom:
         for box in r.boxes:
-            cls  = custom_model.names[int(box.cls[0])]
+            cls  = canonicalize_label(custom_model.names[int(box.cls[0])])
             conf = float(box.conf[0])
             x1, y1, x2, y2 = map(int, box.xyxy[0])
             detections.append((cls, conf, x1, y1, x2, y2))
@@ -292,10 +334,12 @@ def process_frame(frame, last_logged):
     # ── Step 3: Locate and log ──────────────────────────────────
     for cls, conf, x1, y1, x2, y2 in detections:
         cx, cy   = (x1 + x2) // 2, (y1 + y2) // 2
-        track_id = get_track_id(cx, cy)
+        track_id = get_track_id(cx, cy, cls)
         cls = normalize_object_label(cls, conf, x1, y1, x2, y2)
         cls = stabilize_class(track_id, cls, conf)
         if cls not in ALLOWED_OBJECTS:
+            continue
+        if conf < CLASS_MIN_CONF.get(cls, 0.20):
             continue
 
         obj_w = x2 - x1
@@ -313,6 +357,17 @@ def process_frame(frame, last_logged):
         else:
             if track_id in last_known_location:
                 location = last_known_location[track_id]
+            elif current_furniture:
+                location = get_location((x1, y1, x2, y2), current_furniture)
+            elif USE_GRID_ZONE_FALLBACK:
+                # Optional synthetic fallback; disabled by default so zones stay YOLO-based.
+                thirds = frame_w // 3
+                if cx < thirds:
+                    location = "left-zone"
+                elif cx < thirds * 2:
+                    location = "center-zone"
+                else:
+                    location = "right-zone"
 
         movement = update_movement(track_id, location)
 
@@ -342,13 +397,28 @@ def generate_frames():
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
     print("🚀 Stream started:", VIDEO_SOURCE)
 
+    fail_count = 0
     while True:
         ret, frame = cap.read()
         if not ret:
+            fail_count += 1
+            if fail_count >= STREAM_RECONNECT_FAILS:
+                print("⚠️  Stream read failed repeatedly. Reconnecting camera...")
+                cap.release()
+                time.sleep(0.4)
+                cap = cv2.VideoCapture(VIDEO_SOURCE)
+                cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+                fail_count = 0
             time.sleep(0.1)
             continue
+        fail_count = 0
 
-        frame = process_frame(frame, last_logged)
+        if ROTATE_FRAME:
+            frame = cv2.rotate(frame, ROTATE_CODE)
+        try:
+            frame = process_frame(frame, last_logged)
+        except Exception as e:
+            print(f"⚠️  process_frame error: {e}")
 
         _, buffer = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 82])
         yield (b"--frame\r\nContent-Type: image/jpeg\r\n\r\n"

@@ -62,6 +62,22 @@ def human_time(timestamp):
 def clean_zone(zone):
     return None if not zone or zone == "unknown" else zone
 
+def normalize_movement(movement):
+    if not movement:
+        return ""
+    normalized = movement.replace("->", "→")
+    parts = [p.strip() for p in normalized.split("→") if p.strip()]
+    if not parts:
+        return ""
+    if len(parts) == 1:
+        return parts[0]
+    ordered = list(reversed(parts))
+    compact = []
+    for part in ordered:
+        if not compact or compact[-1] != part:
+            compact.append(part)
+    return " → ".join(compact)
+
 def extract_object(query: str) -> str:
     q = query.lower().strip()
     aliases = {
@@ -106,7 +122,8 @@ def smart_response(user_query: str) -> str:
     if "when" in q:
         return f"You last saw your {clean_name(lo)} {human_time(lt)}."
     if "move" in q or "before" in q:
-        return f"Your {clean_name(lo)} moved: {lm.replace('→',' → ')}" if lm else f"No movement history for your {clean_name(lo)}."
+        movement = normalize_movement(lm)
+        return f"Your {clean_name(lo)} moved: {movement}" if movement else f"No movement history for your {clean_name(lo)}."
     return human_response(lo, lz, lt)
 
 
@@ -133,7 +150,7 @@ def get_missing_objects():
                     "last_seen":   last_seen,
                     "missing_for": f"{int(diff)} min" if diff < 60 else f"{int(diff/60)} hr {int(diff%60)} min",
                     "minutes_ago": round(diff, 1),
-                    "movement":    movement or "—",
+                    "movement":    normalize_movement(movement) or "—",
                 })
         except: pass
     return missing
@@ -234,7 +251,7 @@ def get_logs():
     conn.close()
     return jsonify([{
         "object": clean_name(r[0]), "zone": r[1],
-        "track_id": r[2], "timestamp": r[3], "movement": r[4],
+        "track_id": r[2], "timestamp": r[3], "movement": normalize_movement(r[4]),
     } for r in rows])
 
 @app.route("/api/missing")
