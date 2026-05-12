@@ -1,8 +1,8 @@
-# 📹 CCTV Object Tracking System
+ CCTV Object Tracking System
 
 A real-time object tracking and history management system using **YOLOv8** and **DeepSORT**. This system detects specific objects (like bottles and cell phones), tracks them across different zones, and stores their movement history in a database for later retrieval via voice commands.
 
-## 🚀 Features
+ Features
 
 - **Real-time Detection:** Uses YOLOv8 for high-accuracy object detection.
 - **Robust Tracking:** Implements DeepSORT (Simple Online and Realtime Tracking) to maintain object IDs across frames.
@@ -10,7 +10,7 @@ A real-time object tracking and history management system using **YOLOv8** and *
 - **Historical Database:** Logs every movement and zone change into an SQLite database.
 - **Voice Search:** Retrieve the last seen location of an object using voice feedback.
 
-## 🛠️ Tech Stack
+ Tech Stack
 
 - **Computer Vision:** OpenCV, YOLOv8 (Ultralytics)
 - **Tracking:** DeepSORT
@@ -18,7 +18,7 @@ A real-time object tracking and history management system using **YOLOv8** and *
 - **Voice Synthesis:** pyttsx3
 - **Language:** Python
 
-## 📂 Project Structure
+ Project Structure
 
 ```bash
 CCTV_Object_Tracking_Project/
@@ -33,7 +33,7 @@ CCTV_Object_Tracking_Project/
 └── README.md
 ```
 
-## ⚙️ Installation
+ Installation
 
 1. **Clone the repository:**
    ```bash
@@ -46,7 +46,7 @@ CCTV_Object_Tracking_Project/
    pip install -r requirements.txt
    ```
 
-## 🚦 Usage
+ Usage
 
 ### 1. Real-time Tracking
 Run the detection script to start monitoring via webcam or video file:
@@ -67,5 +67,5 @@ python app.py
 ```
 Then open `http://localhost:5000` in your browser.
 
-## 📝 License
+ License
 This project is licensed under the MIT License.
