@@ -64,3 +64,5 @@ Notes
 Database is auto-created by init_db() when the app starts.
 Video source is configured in scripts/detect.py (VIDEO_SOURCE).
 Current app secret key and default credentials are development-friendly values; rotate both for deployment.
+License
+MIT license 
