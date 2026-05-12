@@ -1,68 +1,63 @@
-CCTV Object Tracking
-Real-time indoor object tracking system using YOLOv8 + OpenCV with a Flask web dashboard and SQLite history logs.
+📹 CCTV Object Tracking System
+CCTV Object Tracking System
 
+A real-time object tracking and history management system using YOLOv8 and DeepSORT. This system detects specific objects (like bottles and cell phones), tracks them across different zones, and stores their movement history in a database for later retrieval via voice commands.
+
+🚀 Features
 Features
-Detects and tracks indoor objects such as keys, remote-control, wallet, bottle, and glasses-sunglasses.
-Maps objects to nearby furniture zones like table/desk, chair, bed, and laptop.
-Stores object movement history in SQLite (database/object_history.db).
-Provides web routes for live feed, logs, search, and missing-object intelligence.
-Includes optional voice-based lookup via scripts/voice_search.py.
+
+Real-time Detection: Uses YOLOv8 for high-accuracy object detection.
+Robust Tracking: Implements DeepSORT (Simple Online and Realtime Tracking) to maintain object IDs across frames.
+Zone Monitoring: Automatically identifies which area (Table, Chair, or Bed) an object is in.
+Historical Database: Logs every movement and zone change into an SQLite database.
+Voice Search: Retrieve the last seen location of an object using voice feedback.
+🛠️ Tech Stack
 Tech Stack
-Python
-Flask + Flask-CORS
-OpenCV
-Ultralytics YOLOv8
-SQLite
-pyttsx3
+
+Computer Vision: OpenCV, YOLOv8 (Ultralytics)
+Tracking: DeepSORT
+Database: SQLite3
+Voice Synthesis: pyttsx3
+Language: Python
+📂 Project Structure
 Project Structure
-cctv_objecttracking/
-|-- app.py
-|-- requirements.txt
-|-- database/
-|   `-- object_history.db
-|-- scripts/
-|   |-- detect.py
-|   |-- voice_search.py
-|   |-- jarvis_ai.py
-|   `-- best.pt
-|-- templates/
-|   |-- index.html
-|   |-- login.html
-|   |-- feed.html
-|   |-- logs.html
-|   `-- search.html
-|-- static/
-|   |-- css/style.css
-|   `-- js/main.js
-|-- videos/
-|   `-- test_video.mp4
-`-- datasets/
-Requirements
-Python 3.10+
-Webcam/IP camera/video source
-YOLO weights (yolov8n.pt, scripts/best.pt)
+
+CCTV_Object_Tracking_Project/
+├── database/
+│   └── object_history.db    # SQLite database for tracking logs
+├── scripts/
+│   ├── detect.py            # Main tracking script
+│   ├── voice_search.py      # Voice-enabled history retriever
+│   └── yolov8n.pt           # Pre-trained YOLOv8 model
+├── videos/
+│   └── test_video.mp4       # Sample video for testing
+└── README.md
+⚙️ Installation
+Installation
+
+Clone the repository:
+
+git clone https://github.com/Jerlin34/cctv_objecttracking.git
+cd cctv_objecttracking
 Install dependencies:
 
 pip install -r requirements.txt
-Run the App
-python app.py
-Open: 
-http://localhost:5000
+🚦 Usage
+Usage
 
-Default Login
-Username: admin | Password: admin123
-Username: guest | Password: guest123
-Change these in app.py (USERS dictionary) before production use.
-
-Tracking Script (Direct)
-If you want to run only detection/tracking logic:
+1. Real-time Tracking
+Run the detection script to start monitoring via webcam or video file:
 
 python scripts/detect.py
-Voice Search (Optional)
+2. Voice Search
+To find the last seen location of an object:
+
 python scripts/voice_search.py
-Notes
-Database is auto-created by init_db() when the app starts.
-Video source is configured in scripts/detect.py (VIDEO_SOURCE).
-Current app secret key and default credentials are development-friendly values; rotate both for deployment.
-License
-MIT license 
+3. Web Dashboard (New!)
+Experience the stunning real-time prototype:
+
+python app.py
+Then open http://localhost:5000 in your browser.
+
+📝 License
+License This project is licensed under the MIT License.
